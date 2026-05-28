@@ -4,11 +4,11 @@
       <div>
         <p class="text-sm font-black uppercase tracking-[0.2em] text-emerald-300">Daily Alpha Portfolio</p>
         <h1 class="mt-4 max-w-3xl text-4xl font-black leading-tight md:text-6xl">
-          70점 이상 추천 후보만 담는 오늘의 알파 포트폴리오
+          좋은 회사와 좋은 타이밍을 모두 통과한 오늘의 알파 포트폴리오
         </h1>
         <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
-          기업 점수, 타이밍 점수, 리스크 할인 계수를 분리해 매일 스코어링하고
-          70점 이상 종목만 초과 점수 비례 비중으로 편입합니다.
+          회사 가치와 진입 타이밍을 각각 70점 기준으로 따로 판단하고,
+          두 조건을 모두 통과한 종목만 포트폴리오에 편입합니다.
         </p>
         <div class="mt-8 flex flex-wrap gap-3">
           <RouterLink class="btn-primary bg-emerald-500 text-slate-950" to="/stocks">전체 종목 보기</RouterLink>
@@ -21,11 +21,11 @@
         <div class="mt-5 grid grid-cols-2 gap-3">
           <div class="rounded-lg bg-white/10 p-4">
             <p class="text-sm text-slate-400">편입 기준</p>
-            <p class="mt-2 text-3xl font-black">70점+</p>
+            <p class="mt-2 text-3xl font-black">가치+타이밍</p>
           </div>
           <div class="rounded-lg bg-white/10 p-4">
             <p class="text-sm text-slate-400">비중 산정</p>
-            <p class="mt-2 text-3xl font-black">초과 점수</p>
+            <p class="mt-2 text-3xl font-black">균형 점수</p>
           </div>
           <div class="rounded-lg bg-white/10 p-4">
             <p class="text-sm text-slate-400">갱신 주기</p>
@@ -68,7 +68,9 @@
             <div>
               <p class="text-sm font-bold text-slate-500">기준일 {{ portfolio.baseDate || "-" }}</p>
               <h2 class="mt-1 text-4xl font-black text-slate-950">{{ portfolio.portfolioScore || 0 }}점</h2>
-              <p class="mt-2 text-sm font-black text-emerald-700">{{ portfolio.riskTypeLabel || "중립형" }} 포트폴리오</p>
+              <p class="mt-2 text-sm font-black text-emerald-700">
+                {{ portfolio.riskTypeLabel || "중립형" }} 포트폴리오 · 균형 {{ portfolio.eligibilityScore || 0 }}점
+              </p>
             </div>
             <div class="rounded-lg bg-slate-100 px-4 py-3 text-right">
               <p class="text-sm text-slate-500">편입 종목</p>
@@ -81,7 +83,7 @@
           </p>
 
           <div class="mt-6">
-            <p class="mb-3 text-sm font-black text-slate-700">70점 초과분 비례 예상 비중</p>
+            <p class="mb-3 text-sm font-black text-slate-700">회사·타이밍 70점 통과 강도 비례 예상 비중</p>
             <div v-for="item in portfolio.items" :key="item.ticker" class="mb-3">
               <div class="mb-1 flex justify-between text-sm font-bold">
                 <span>{{ item.name }}</span>
@@ -117,9 +119,10 @@
             </div>
             <div class="flex min-w-40 flex-col items-start gap-3 md:items-end">
               <div class="text-left md:text-right">
-                <p class="text-sm text-slate-500">종합 점수</p>
+                <p class="text-sm text-slate-500">리스크 반영 점수</p>
                 <p class="text-3xl font-black text-rose-500">{{ item.total_score.toFixed(1) }}점</p>
-                <p class="text-sm font-bold text-emerald-700">추천 비중 {{ item.weight }}%</p>
+                <p class="text-sm font-bold text-emerald-700">회사 {{ item.company_score }} · 타이밍 {{ item.timing_score }}</p>
+                <p class="text-sm font-bold text-slate-500">추천 비중 {{ item.weight }}%</p>
               </div>
               <RouterLink class="btn-primary" :to="{ name: 'stock-report', params: { ticker: item.ticker } }">리포트 보기</RouterLink>
             </div>
@@ -127,7 +130,7 @@
 
           <div v-if="!portfolio.items?.length" class="panel p-7">
             <h3 class="text-2xl font-black text-slate-950">오늘은 추천 조건을 만족한 종목이 없습니다.</h3>
-            <p class="mt-2 text-slate-600">70점 이상 종목이 없으므로 관찰 후보만 표시합니다.</p>
+            <p class="mt-2 text-slate-600">회사 가치와 진입 타이밍이 모두 70점 이상인 종목이 없으므로 관찰 후보만 표시합니다.</p>
           </div>
         </div>
       </div>
@@ -206,7 +209,7 @@ async function loadDashboard() {
   try {
     const [portfolioResponse, backtestResponse] = await Promise.all([
       api.get("/portfolio/today/", { params: { risk_type: riskType.value } }),
-      api.get("/portfolio/backtest/"),
+      api.get("/portfolio/backtest/", { params: { risk_type: riskType.value } }),
     ]);
     portfolio.value = portfolioResponse.data;
     backtest.value = backtestResponse.data;

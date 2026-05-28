@@ -1,5 +1,5 @@
 from collections import Counter
-from datetime import date
+from datetime import date, timedelta
 
 from django.db import transaction
 from django.db.models import Max, Prefetch
@@ -9,8 +9,14 @@ from .models import AICommentCache, PortfolioItem, PortfolioRun, PriceDaily, Sco
 
 PORTFOLIO_THRESHOLD = 70
 MIN_RELIABILITY_SCORE = 70
-MIN_COMPONENT_SCORE = 60
+MIN_COMPONENT_SCORE = 70
 PRICE_HISTORY_DAYS = 365
+BACKTEST_PERIODS = {
+    "1w": {"days": 7, "label": "1주"},
+    "1m": {"days": 30, "label": "1개월"},
+    "3m": {"days": 90, "label": "3개월"},
+    "1y": {"days": 365, "label": "1년"},
+}
 RISK_TYPE_NEUTRAL = "neutral"
 RISK_TYPE_AGGRESSIVE = "aggressive"
 RISK_TYPE_STABLE = "stable"
@@ -62,7 +68,6 @@ def latest_scores_queryset(base_date=None):
 
 def portfolio_candidates(base_date=None):
     return latest_scores_queryset(base_date).filter(
-        total_score__gte=PORTFOLIO_THRESHOLD,
         reliability_score__gte=MIN_RELIABILITY_SCORE,
         company_score__gte=MIN_COMPONENT_SCORE,
         timing_score__gte=MIN_COMPONENT_SCORE,
@@ -81,7 +86,6 @@ def watch_candidates(base_date=None, limit=5):
         latest_scores_queryset(base_date)
         .filter(stock__is_active=True, stock__is_tradable=True)
         .exclude(
-            total_score__gte=PORTFOLIO_THRESHOLD,
             reliability_score__gte=MIN_RELIABILITY_SCORE,
             company_score__gte=MIN_COMPONENT_SCORE,
             timing_score__gte=MIN_COMPONENT_SCORE,
@@ -127,10 +131,10 @@ def sector_warning_for(scores):
 
 def build_portfolio_summary(scores):
     if not scores:
-        return "오늘은 편입 조건을 만족한 종목이 없습니다. 관찰 후보를 확인하고 다음 리밸런싱을 기다려주세요."
-    avg_score = sum(score.total_score for score in scores) / len(scores)
+        return "오늘은 회사 가치와 진입 타이밍이 모두 70점을 넘긴 종목이 없습니다. 관찰 후보를 확인하고 다음 리밸런싱을 기다려주세요."
+    avg_score = sum(weighted_component_score(score) for score in scores) / len(scores)
     top_reasons = " · ".join(score.stock.name for score in scores[:3])
-    return f"{len(scores)}개 종목이 70점 이상 추천 후보 조건을 통과했습니다. 평균 점수는 {avg_score:.1f}점이며 핵심 편입 종목은 {top_reasons}입니다."
+    return f"{len(scores)}개 종목이 회사 가치 70점 이상, 진입 타이밍 70점 이상 조건을 통과했습니다. 평균 균형 점수는 {avg_score:.1f}점이며 핵심 편입 종목은 {top_reasons}입니다."
 
 
 def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL):
@@ -140,8 +144,6 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
         latest_scores_queryset(base_date)
         .filter(
             reliability_score__gte=MIN_RELIABILITY_SCORE,
-            company_score__gte=MIN_COMPONENT_SCORE,
-            timing_score__gte=MIN_COMPONENT_SCORE,
             stock__is_active=True,
             stock__is_tradable=True,
             stock__is_universe_included=True,
@@ -153,6 +155,9 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
     rows = []
     for score in scores:
         adjusted_score = score_for_risk(score, risk_type)
+        company_score = company_score_for_risk(score, risk_type)
+        timing_score = timing_score_for_risk(score, risk_type)
+        eligibility_score = weighted_component_score(score, risk_type)
         rows.append(
             {
                 "score_obj": score,
@@ -162,9 +167,11 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
                 "sector": score.stock.sector,
                 "primary_theme": score.stock.primary_theme or score.stock.sector,
                 "total_score": adjusted_score,
-                "company_score": company_score_for_risk(score, risk_type),
-                "timing_score": timing_score_for_risk(score, risk_type),
+                "eligibility_score": round(eligibility_score, 1),
+                "company_score": company_score,
+                "timing_score": timing_score,
                 "reliability_score": round(score.reliability_score, 1),
+                "passes_company_timing": company_score >= MIN_COMPONENT_SCORE and timing_score >= MIN_COMPONENT_SCORE,
                 "signal": score.signal,
                 "key_reason": score.key_reason or score.reason,
                 "rs_rank": score.rs_rank,
@@ -181,20 +188,20 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
                 "warning": score.warning,
             }
         )
-    rows.sort(key=lambda row: (-row["total_score"], row["name"]))
+    rows.sort(key=lambda row: (-row["passes_company_timing"], -row["eligibility_score"], -row["total_score"], row["name"]))
     items = [
         row
         for row in rows
-        if row["total_score"] >= PORTFOLIO_THRESHOLD
+        if row["passes_company_timing"]
         and not row["low_liquidity_flag"]
         and not row["fail_safe_flag"]
     ]
-    score_sum = sum(max(row["total_score"] - PORTFOLIO_THRESHOLD, 1) for row in items)
+    score_sum = sum(max(row["eligibility_score"] - PORTFOLIO_THRESHOLD, 1) for row in items)
     for row in items:
-        score_edge = max(row["total_score"] - PORTFOLIO_THRESHOLD, 1)
+        score_edge = max(row["eligibility_score"] - PORTFOLIO_THRESHOLD, 1)
         row["weight"] = round((score_edge / score_sum) * 100, 2) if score_sum else 0
-        row.pop("score_obj", None)
-    watch_rows = rows[len(items): len(items) + 5] if items else rows[:5]
+    item_tickers = {row["ticker"] for row in items}
+    watch_rows = [row for row in rows if row["ticker"] not in item_tickers][:5]
     watch_candidates_payload = [
         {
             "ticker": row["ticker"],
@@ -216,30 +223,39 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
         }
         for row in watch_rows
     ]
+    item_payload = []
+    for row in items:
+        clean_row = row.copy()
+        clean_row.pop("score_obj", None)
+        item_payload.append(clean_row)
     portfolio_score = round(sum(row["total_score"] for row in items) / len(items), 2) if items else 0
+    eligibility_average = round(sum(row["eligibility_score"] for row in items) / len(items), 2) if items else 0
     sector_warning = sector_warning_for([type("PortfolioSector", (), row) for row in items])
     if not items:
-        summary = f"{RISK_LABELS[risk_type]} 기준 70점 이상 추천 후보가 없습니다. 관찰 후보 TOP 5를 확인하세요."
+        summary = f"{RISK_LABELS[risk_type]} 기준 회사 가치와 진입 타이밍이 모두 70점을 넘긴 종목이 없습니다. 관찰 후보 TOP 5를 확인하세요."
     else:
         names = " · ".join(row["name"] for row in items[:3])
-        summary = f"{RISK_LABELS[risk_type]} 기준 {len(items)}개 종목이 70점 이상 추천 포트폴리오에 편입되었습니다. 평균 점수는 {portfolio_score:.1f}점이며 핵심 편입 종목은 {names}입니다."
+        summary = f"{RISK_LABELS[risk_type]} 기준 {len(items)}개 종목이 회사 가치 70점 이상, 진입 타이밍 70점 이상 조건을 통과했습니다. 평균 균형 점수는 {eligibility_average:.1f}점이며 핵심 편입 종목은 {names}입니다."
     return {
         "baseDate": base_date.isoformat(),
         "portfolioScore": portfolio_score,
+        "eligibilityScore": eligibility_average,
         "rebalanceType": "daily",
         "threshold": PORTFOLIO_THRESHOLD,
+        "companyTimingThreshold": MIN_COMPONENT_SCORE,
         "userRiskType": risk_type,
         "riskTypeLabel": RISK_LABELS[risk_type],
         "summary": summary,
         "sectorWarning": sector_warning,
-        "items": items,
+        "items": item_payload,
         "watchCandidates": watch_candidates_payload,
         "benchmarkSummary": {
             "benchmark": "KOSPI",
             "rebalanceType": "daily",
             "threshold": PORTFOLIO_THRESHOLD,
+            "companyTimingThreshold": MIN_COMPONENT_SCORE,
             "itemCount": len(items),
-            "message": "일별 리밸런싱 기준의 MVP 백테스트 요약은 /api/portfolio/backtest/에서 제공합니다.",
+            "message": "회사 가치와 진입 타이밍이 모두 70점 이상인 종목을 편입한 MVP 백테스트 요약은 /api/portfolio/backtest/에서 제공합니다.",
         },
     }
 
@@ -248,7 +264,7 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
 def ensure_portfolio_run(base_date=None):
     base_date = base_date or latest_score_date() or date.today()
     scores = list(portfolio_candidates(base_date))
-    score_sum = sum(max(score.total_score - PORTFOLIO_THRESHOLD, 1) for score in scores)
+    score_sum = sum(max(weighted_component_score(score) - PORTFOLIO_THRESHOLD, 1) for score in scores)
     portfolio_score = round(sum(score.total_score for score in scores) / len(scores), 2) if scores else 0
 
     run, _ = PortfolioRun.objects.update_or_create(
@@ -264,7 +280,7 @@ def ensure_portfolio_run(base_date=None):
     run.items.all().delete()
 
     for score in scores:
-        score_edge = max(score.total_score - PORTFOLIO_THRESHOLD, 1)
+        score_edge = max(weighted_component_score(score) - PORTFOLIO_THRESHOLD, 1)
         weight = round((score_edge / score_sum) * 100, 2) if score_sum else 0
         PortfolioItem.objects.create(
             portfolio_run=run,
@@ -306,11 +322,175 @@ def stock_report(ticker):
     }
 
 
-def calculate_backtest(benchmark="KOSPI"):
-    runs = list(PortfolioRun.objects.order_by("base_date").prefetch_related("items__stock"))
-    if not runs:
+def normalize_backtest_period(value):
+    return value if value in BACKTEST_PERIODS else "1y"
+
+
+def normalize_value_series(rows):
+    rows = [(row_date, value) for row_date, value in rows if value]
+    if len(rows) < 2:
+        return []
+    start_value = rows[0][1]
+    if not start_value:
+        return []
+    return [{"date": row_date, "value": round((value / start_value) * 100, 4)} for row_date, value in rows]
+
+
+def portfolio_price_series(items, start_date, end_date):
+    weighted_stocks = []
+    for item in items:
+        prices = list(
+            PriceDaily.objects.filter(
+                stock_id=item["ticker"],
+                date__gte=start_date,
+                date__lte=end_date,
+            )
+            .order_by("date")
+            .values_list("date", "close_price")
+        )
+        if len(prices) < 2:
+            continue
+        start_price = prices[0][1]
+        if not start_price:
+            continue
+        weighted_stocks.append(
+            {
+                "ticker": item["ticker"],
+                "weight": float(item.get("weight") or 0),
+                "start_price": float(start_price),
+                "prices": {row_date: float(close) for row_date, close in prices},
+                "last_price": float(start_price),
+            }
+        )
+
+    total_weight = sum(stock["weight"] for stock in weighted_stocks)
+    if not weighted_stocks or total_weight <= 0:
+        return []
+
+    dates = sorted({row_date for stock in weighted_stocks for row_date in stock["prices"]})
+    series = []
+    for row_date in dates:
+        portfolio_value = 0
+        active_weight = 0
+        for stock in weighted_stocks:
+            if row_date in stock["prices"]:
+                stock["last_price"] = stock["prices"][row_date]
+            if stock["last_price"]:
+                active_weight += stock["weight"]
+                portfolio_value += stock["weight"] * (stock["last_price"] / stock["start_price"])
+        if active_weight:
+            series.append({"date": row_date, "value": round((portfolio_value / active_weight) * 100, 4)})
+    return series
+
+
+def market_proxy_benchmark_series(start_date, end_date):
+    rows = list(
+        PriceDaily.objects.filter(
+            stock__market="KOSPI",
+            stock__is_active=True,
+            date__gte=start_date,
+            date__lte=end_date,
+        )
+        .order_by("stock_id", "date")
+        .values_list("stock_id", "date", "close_price")
+    )
+    start_prices = {}
+    by_date = {}
+    for ticker, row_date, close in rows:
+        if not close:
+            continue
+        start_prices.setdefault(ticker, float(close))
+        by_date.setdefault(row_date, []).append(float(close) / start_prices[ticker])
+    averaged = [(row_date, (sum(values) / len(values)) * 100) for row_date, values in sorted(by_date.items()) if values]
+    return [{"date": row_date, "value": round(value, 4)} for row_date, value in averaged]
+
+
+def kospi_benchmark_series(start_date, end_date):
+    if Stock.objects.filter(market="KOSPI").count() < 100:
+        return [], "KOSPI 대용 지수"
+    try:
+        from pykrx import stock as krx_stock
+
+        frame = krx_stock.get_index_ohlcv_by_date(
+            start_date.strftime("%Y%m%d"),
+            end_date.strftime("%Y%m%d"),
+            "1001",
+        )
+        if frame.empty:
+            return [], "KOSPI 대용 지수"
+        close_column = "종가" if "종가" in frame.columns else frame.columns[3]
+        rows = [(index.date(), float(row[close_column])) for index, row in frame.iterrows()]
+        return normalize_value_series(rows), "KOSPI"
+    except Exception:
+        return [], "KOSPI 대용 지수"
+
+
+def align_backtest_series(portfolio_series, benchmark_series, item_count):
+    if not portfolio_series:
+        return [], 0, 0
+    benchmark_by_date = {row["date"]: row["value"] for row in benchmark_series}
+    benchmark_dates = sorted(benchmark_by_date)
+    last_benchmark = benchmark_series[0]["value"] if benchmark_series else 100
+    rows = []
+    previous_portfolio = None
+    previous_benchmark = None
+    wins = 0
+    comparable_days = 0
+    peak = portfolio_series[0]["value"]
+    max_drawdown = 0
+
+    for point in portfolio_series:
+        row_date = point["date"]
+        if row_date in benchmark_by_date:
+            last_benchmark = benchmark_by_date[row_date]
+        elif benchmark_dates:
+            for benchmark_date in benchmark_dates:
+                if benchmark_date <= row_date:
+                    last_benchmark = benchmark_by_date[benchmark_date]
+                else:
+                    break
+        portfolio_value = point["value"]
+        peak = max(peak, portfolio_value)
+        max_drawdown = min(max_drawdown, (portfolio_value - peak) / peak * 100)
+        portfolio_daily = 0 if previous_portfolio is None else (portfolio_value / previous_portfolio - 1) * 100
+        benchmark_daily = 0 if previous_benchmark is None else (last_benchmark / previous_benchmark - 1) * 100
+        if previous_portfolio is not None and previous_benchmark is not None:
+            comparable_days += 1
+            wins += int(portfolio_daily > benchmark_daily)
+        rows.append(
+            {
+                "date": row_date.isoformat(),
+                "portfolio": round(portfolio_value, 2),
+                "benchmark": round(last_benchmark, 2),
+                "portfolioReturn": round(portfolio_value - 100, 2),
+                "benchmarkReturn": round(last_benchmark - 100, 2),
+                "alpha": round((portfolio_value - last_benchmark), 2),
+                "portfolioDailyReturn": round(portfolio_daily, 2),
+                "benchmarkDailyReturn": round(benchmark_daily, 2),
+                "itemCount": item_count,
+            }
+        )
+        previous_portfolio = portfolio_value
+        previous_benchmark = last_benchmark
+    win_rate = round((wins / comparable_days) * 100, 1) if comparable_days else 0
+    return rows, win_rate, round(max_drawdown, 2)
+
+
+def calculate_backtest(benchmark="KOSPI", period="1y", risk_type=RISK_TYPE_NEUTRAL):
+    period = normalize_backtest_period(period)
+    risk_type = normalize_risk_type(risk_type)
+    end_date = latest_price_date() or latest_score_date() or date.today()
+    start_date = end_date - timedelta(days=BACKTEST_PERIODS[period]["days"])
+    portfolio_payload = build_dynamic_portfolio_payload(risk_type=risk_type)
+    items = portfolio_payload.get("items", [])
+    if not items:
         return {
             "benchmark": benchmark,
+            "benchmarkSource": benchmark,
+            "period": period,
+            "periodLabel": BACKTEST_PERIODS[period]["label"],
+            "startDate": start_date.isoformat(),
+            "endDate": end_date.isoformat(),
             "rebalanceType": "daily",
             "portfolioReturn": 0,
             "benchmarkReturn": 0,
@@ -320,44 +500,31 @@ def calculate_backtest(benchmark="KOSPI"):
             "summary": "아직 생성된 포트폴리오가 없습니다.",
         }
 
-    portfolio_value = 100.0
-    benchmark_value = 100.0
-    series = []
-    wins = 0
-    peak = portfolio_value
-    max_drawdown = 0
+    portfolio_series = portfolio_price_series(items, start_date, end_date)
+    benchmark_series, benchmark_source = kospi_benchmark_series(start_date, end_date)
+    if not benchmark_series:
+        benchmark_series = market_proxy_benchmark_series(start_date, end_date)
+    series, win_rate, max_drawdown = align_backtest_series(portfolio_series, benchmark_series, len(items))
+    portfolio_return = series[-1]["portfolioReturn"] if series else 0
+    benchmark_return = series[-1]["benchmarkReturn"] if series else 0
+    alpha = round(portfolio_return - benchmark_return, 2)
 
-    for index, run in enumerate(runs):
-        daily_alpha = 0.06 + max(run.portfolio_score - PORTFOLIO_THRESHOLD, 0) * 0.025
-        benchmark_daily = 0.08 if benchmark.upper() == "KOSPI" else 0.06
-        if not run.items.exists():
-            daily_alpha = 0
-        portfolio_value *= 1 + daily_alpha / 100
-        benchmark_value *= 1 + benchmark_daily / 100
-        wins += int(daily_alpha > benchmark_daily)
-        peak = max(peak, portfolio_value)
-        max_drawdown = min(max_drawdown, (portfolio_value - peak) / peak * 100)
-        series.append(
-            {
-                "date": run.base_date.isoformat(),
-                "portfolio": round(portfolio_value, 2),
-                "benchmark": round(benchmark_value, 2),
-                "portfolioDailyReturn": round(daily_alpha, 2),
-                "benchmarkDailyReturn": benchmark_daily,
-                "itemCount": run.items.count(),
-            }
-        )
-
-    total_runs = len(runs)
     return {
         "benchmark": benchmark.upper(),
-        "rebalanceType": "daily",
-        "portfolioReturn": round(portfolio_value - 100, 2),
-        "benchmarkReturn": round(benchmark_value - 100, 2),
-        "winRate": round((wins / total_runs) * 100, 1) if total_runs else 0,
-        "maxDrawdown": round(max_drawdown, 2),
+        "benchmarkSource": benchmark_source,
+        "period": period,
+        "periodLabel": BACKTEST_PERIODS[period]["label"],
+        "startDate": series[0]["date"] if series else start_date.isoformat(),
+        "endDate": series[-1]["date"] if series else end_date.isoformat(),
+        "rebalanceType": "period-hold",
+        "portfolioReturn": round(portfolio_return, 2),
+        "benchmarkReturn": round(benchmark_return, 2),
+        "alpha": alpha,
+        "winRate": win_rate,
+        "maxDrawdown": max_drawdown,
+        "itemCount": len(items),
         "series": series,
-        "summary": "추천 포트폴리오를 매일 리밸런싱한다고 가정한 MVP 백테스트입니다.",
+        "summary": f"현재 {RISK_LABELS[risk_type]} 추천 포트폴리오를 {BACKTEST_PERIODS[period]['label']} 전 매수해 보유했다고 가정한 수익률입니다.",
     }
 
 
@@ -386,7 +553,9 @@ def generate_ai_comment(ticker, risk_type=RISK_TYPE_NEUTRAL):
     if metric and metric.current_price and metric.target_price:
         upside = round((metric.target_price - metric.current_price) / metric.current_price * 100, 1)
 
-    positive = f"{stock.name}은 {positive_title} 점수가 강하고, 종합 점수 {score_for_risk(score, risk_type):.1f}점으로 {RISK_LABELS[risk_type]} 기준 포트폴리오 후보에 적합합니다."
+    component_pass = score.company_score >= MIN_COMPONENT_SCORE and score.timing_score >= MIN_COMPONENT_SCORE
+    pass_text = "포트폴리오 후보 조건을 통과합니다" if component_pass else "포트폴리오 후보 조건은 추가 확인이 필요합니다"
+    positive = f"{stock.name}은 {positive_title} 점수가 강하고, 회사 {score.company_score:.1f}점·타이밍 {score.timing_score:.1f}점으로 {RISK_LABELS[risk_type]} 기준 {pass_text}."
     negative = f"다만 {negative_title} 항목과 '{score.warning or '단기 변동성'}' 이슈는 진입 전 확인이 필요합니다."
     conclusion = f"목표가 기준 상승 여력은 약 {upside}%이며, 현재 판단은 '{score.verdict}'입니다. 본 결과는 투자 참고용 분석입니다."
 

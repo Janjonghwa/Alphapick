@@ -95,7 +95,9 @@ class PortfolioBacktestView(APIView):
 
     def get(self, request):
         benchmark = request.query_params.get("benchmark", "KOSPI")
-        return Response(calculate_backtest(benchmark=benchmark))
+        period = request.query_params.get("period", "1y")
+        risk_type = normalize_risk_type(request.query_params.get("risk_type"))
+        return Response(calculate_backtest(benchmark=benchmark, period=period, risk_type=risk_type))
 
 
 class WatchlistView(APIView):

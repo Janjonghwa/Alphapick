@@ -22,7 +22,7 @@
       </nav>
 
       <div class="hidden rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700 lg:block">
-        70점 이상 추천 후보
+        가치·타이밍 70점+
       </div>
     </div>
   </header>
