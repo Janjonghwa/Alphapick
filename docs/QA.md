@@ -19,8 +19,9 @@ npm run build
 ```txt
 GET /api/portfolio/today/
 - status 200
-- items are all score >= 70
-- weights sum to 100
+- neutral items pass company >= 70, timing >= 70, reliability >= 70
+- stock weights + cashWeight sum to 100
+- allocationItems includes stock allocation and cash when cashWeight > 0
 - `?risk_type=aggressive|neutral|stable` returns the selected risk type
 
 GET /api/stocks/
@@ -30,7 +31,7 @@ GET /api/stocks/
 GET /api/stocks/105560.KS/report/
 - status 200
 - 365 price points
-- score cards and CAN SLIM exist
+- score cards, technical indicators, financial indicators, news/disclosures exist
 
 POST /api/stocks/105560.KS/ai-comment/
 - status 200

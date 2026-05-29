@@ -2,25 +2,31 @@
   <section class="page-shell py-8">
     <div class="flex flex-col justify-between gap-4 md:flex-row md:items-end">
       <div>
-        <p class="text-sm font-black text-moss">마이페이지</p>
-        <h1 class="text-3xl font-black">{{ auth.user?.nickname || auth.user?.username }}</h1>
-        <p class="mt-2 text-ink/65">{{ auth.user?.preferred_location || "선호 지역 없음" }} · {{ auth.user?.level }}</p>
+        <p class="text-sm font-black text-emerald-600">마이페이지</p>
+        <h1 class="text-3xl font-black text-slate-950">{{ auth.user?.nickname || auth.user?.username }}</h1>
+        <p class="mt-2 text-slate-500">투자 성향: {{ riskLabel }}</p>
       </div>
       <RouterLink class="btn-primary" to="/profile/edit"><Settings :size="18" />프로필 수정</RouterLink>
     </div>
-    <section class="mt-8">
-      <h2 class="text-2xl font-black">북마크</h2>
-      <div class="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <CourseCard v-for="item in courseBookmarks" :key="`c-${item.id}`" :course="item.course_detail" />
-        <FitnessSpotCard v-for="item in spotBookmarks" :key="`s-${item.id}`" :spot="item.fitness_spot_detail" />
-      </div>
-    </section>
-    <section class="mt-8">
-      <h2 class="text-2xl font-black">운동 기록</h2>
-      <div class="mt-4 space-y-3">
-        <div v-for="record in records" :key="record.id" class="panel p-4">
-          <p class="font-black">{{ record.course_detail?.name }}</p>
-          <p class="mt-1 text-sm text-ink/65">{{ record.distance_km }}km · {{ record.duration_min }}분 · {{ new Date(record.started_at).toLocaleDateString() }}</p>
+
+    <section class="panel mt-8 p-6">
+      <h2 class="text-2xl font-black text-slate-950">추천 정책</h2>
+      <p class="mt-2 leading-7 text-slate-600">
+        AlphaPick은 성향별 회사 가치·진입 타이밍 허들을 통과한 종목만 포트폴리오에 편입하고,
+        시장 상태와 섹터 편중을 반영해 현금 비중을 함께 제안합니다.
+      </p>
+      <div class="mt-5 grid gap-3 md:grid-cols-3">
+        <div class="rounded-lg bg-slate-50 p-4">
+          <p class="text-sm font-black text-slate-500">공격형</p>
+          <p class="mt-1 font-bold text-slate-900">회사 65 · 타이밍 75</p>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-4">
+          <p class="text-sm font-black text-slate-500">중립형</p>
+          <p class="mt-1 font-bold text-slate-900">회사 70 · 타이밍 70</p>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-4">
+          <p class="text-sm font-black text-slate-500">안정형</p>
+          <p class="mt-1 font-bold text-slate-900">회사 75 · 타이밍 65</p>
         </div>
       </div>
     </section>
@@ -28,29 +34,20 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted } from "vue";
 import { Settings } from "@lucide/vue";
 
-import { api, unwrapList } from "../api/client";
-import CourseCard from "../components/CourseCard.vue";
-import FitnessSpotCard from "../components/FitnessSpotCard.vue";
 import { useAuthStore } from "../stores/auth";
 
 const auth = useAuthStore();
-const bookmarks = ref([]);
-const records = ref([]);
-const courseBookmarks = computed(() => bookmarks.value.filter((item) => item.course_detail));
-const spotBookmarks = computed(() => bookmarks.value.filter((item) => item.fitness_spot_detail));
+const labels = {
+  aggressive: "공격형",
+  neutral: "중립형",
+  stable: "안정형",
+};
+const riskLabel = computed(() => labels[auth.user?.risk_type] || "중립형");
 
-async function load() {
-  await auth.fetchMe();
-  const [{ data: bookmarkData }, { data: recordData }] = await Promise.all([
-    api.get("/bookmarks/"),
-    api.get("/workout-records/"),
-  ]);
-  bookmarks.value = unwrapList(bookmarkData);
-  records.value = unwrapList(recordData);
-}
-
-onMounted(load);
+onMounted(() => {
+  auth.fetchMe();
+});
 </script>

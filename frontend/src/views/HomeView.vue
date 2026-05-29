@@ -7,8 +7,8 @@
           좋은 회사와 좋은 타이밍을 모두 통과한 오늘의 알파 포트폴리오
         </h1>
         <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
-          회사 가치와 진입 타이밍을 각각 70점 기준으로 따로 판단하고,
-          두 조건을 모두 통과한 종목만 포트폴리오에 편입합니다.
+          회사 가치와 진입 타이밍을 성향별 허들로 따로 판단하고,
+          시장 상태·섹터 편중을 반영해 현금 비중까지 함께 제안합니다.
         </p>
         <div class="mt-8 flex flex-wrap gap-3">
           <RouterLink class="btn-primary bg-emerald-500 text-slate-950" to="/stocks">전체 종목 보기</RouterLink>
@@ -25,15 +25,15 @@
           </div>
           <div class="rounded-lg bg-white/10 p-4">
             <p class="text-sm text-slate-400">비중 산정</p>
-            <p class="mt-2 text-3xl font-black">균형 점수</p>
+            <p class="mt-2 text-3xl font-black">현금+Cap</p>
           </div>
           <div class="rounded-lg bg-white/10 p-4">
             <p class="text-sm text-slate-400">갱신 주기</p>
             <p class="mt-2 text-3xl font-black">매일</p>
           </div>
           <div class="rounded-lg bg-white/10 p-4">
-            <p class="text-sm text-slate-400">최소 신뢰도</p>
-            <p class="mt-2 text-3xl font-black">70점+</p>
+            <p class="text-sm text-slate-400">섹터 한도</p>
+            <p class="mt-2 text-3xl font-black">25~35%</p>
           </div>
         </div>
         <div class="mt-5 rounded-lg bg-white/10 p-4">
@@ -51,6 +51,9 @@
             </button>
           </div>
           <p class="mt-3 text-sm leading-6 text-slate-300">{{ selectedRiskDescription }}</p>
+          <p v-if="portfolio.hurdles" class="mt-3 rounded-lg bg-slate-950/40 p-3 text-xs font-bold leading-5 text-emerald-100">
+            현재 허들: 회사 {{ portfolio.hurdles.company }}점 · 타이밍 {{ portfolio.hurdles.timing }}점 · 신뢰도 {{ portfolio.hurdles.reliability }}점 · 섹터 최대 {{ portfolio.sectorCap }}%
+          </p>
         </div>
       </div>
     </div>
@@ -72,25 +75,49 @@
                 {{ portfolio.riskTypeLabel || "중립형" }} 포트폴리오 · 균형 {{ portfolio.eligibilityScore || 0 }}점
               </p>
             </div>
-            <div class="rounded-lg bg-slate-100 px-4 py-3 text-right">
-              <p class="text-sm text-slate-500">편입 종목</p>
-              <p class="text-2xl font-black text-slate-950">{{ portfolio.items?.length || 0 }}개</p>
+            <div class="grid grid-cols-2 gap-2 text-right">
+              <div class="rounded-lg bg-slate-100 px-4 py-3">
+                <p class="text-sm text-slate-500">편입 종목</p>
+                <p class="text-2xl font-black text-slate-950">{{ portfolio.items?.length || 0 }}개</p>
+              </div>
+              <div class="rounded-lg bg-amber-50 px-4 py-3">
+                <p class="text-sm text-amber-700">현금</p>
+                <p class="text-2xl font-black text-amber-700">{{ formatPercent(portfolio.cashWeight) }}%</p>
+              </div>
             </div>
           </div>
           <p class="mt-5 leading-7 text-slate-600">{{ portfolio.summary }}</p>
+          <div class="mt-4 grid gap-3 md:grid-cols-3">
+            <div class="rounded-lg bg-slate-50 p-3">
+              <p class="text-xs font-black text-slate-500">시장 상태</p>
+              <p class="mt-1 font-black text-slate-900">{{ portfolio.marketRegime || "-" }}</p>
+              <p class="text-xs text-slate-500">시장 방향 {{ portfolio.marketDirectionScore ?? "-" }}점</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-3">
+              <p class="text-xs font-black text-slate-500">기본 현금</p>
+              <p class="mt-1 font-black text-slate-900">{{ formatPercent(portfolio.baseCashWeight) }}%</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-3">
+              <p class="text-xs font-black text-slate-500">분산 불가 현금</p>
+              <p class="mt-1 font-black text-slate-900">{{ formatPercent(portfolio.sectorCashWeight) }}%</p>
+            </div>
+          </div>
           <p v-if="portfolio.sectorWarning" class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-700">
             {{ portfolio.sectorWarning }}
           </p>
+          <ul v-if="portfolio.cashReasons?.length" class="mt-4 space-y-2 rounded-lg bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-600">
+            <li v-for="reason in portfolio.cashReasons" :key="reason">· {{ reason }}</li>
+          </ul>
 
           <div class="mt-6">
-            <p class="mb-3 text-sm font-black text-slate-700">회사·타이밍 70점 통과 강도 비례 예상 비중</p>
-            <div v-for="item in portfolio.items" :key="item.ticker" class="mb-3">
+            <p class="mb-3 text-sm font-black text-slate-700">최종 자산 배분</p>
+            <div v-for="item in portfolio.allocationItems || []" :key="item.ticker" class="mb-3">
               <div class="mb-1 flex justify-between text-sm font-bold">
                 <span>{{ item.name }}</span>
-                <span>{{ item.weight }}%</span>
+                <span>{{ formatPercent(item.weight) }}%</span>
               </div>
               <div class="h-2 overflow-hidden rounded-full bg-slate-100">
-                <div class="h-full rounded-full bg-emerald-500" :style="{ width: `${item.weight}%` }"></div>
+                <div class="h-full rounded-full" :class="allocationBarClass(item)" :style="{ width: `${item.weight}%` }"></div>
               </div>
             </div>
           </div>
@@ -111,6 +138,7 @@
               </div>
               <div class="mt-3 flex flex-wrap gap-2">
                 <span class="badge bg-slate-950 text-white">{{ item.signal }}</span>
+                <span v-if="item.sector_cap_applied" class="badge bg-amber-100 text-amber-700">섹터 Cap 조정</span>
                 <span v-if="item.volume_surge_flag" class="badge bg-blue-100 text-blue-700">거래량 급증</span>
                 <span v-if="item.target_upside_clipped" class="badge bg-amber-100 text-amber-700">목표가 200%+ 클리핑</span>
               </div>
@@ -120,9 +148,12 @@
             <div class="flex min-w-40 flex-col items-start gap-3 md:items-end">
               <div class="text-left md:text-right">
                 <p class="text-sm text-slate-500">리스크 반영 점수</p>
-                <p class="text-3xl font-black text-rose-500">{{ item.total_score.toFixed(1) }}점</p>
+                <p class="text-3xl font-black text-rose-500">{{ formatScore(item.total_score) }}점</p>
                 <p class="text-sm font-bold text-emerald-700">회사 {{ item.company_score }} · 타이밍 {{ item.timing_score }}</p>
-                <p class="text-sm font-bold text-slate-500">추천 비중 {{ item.weight }}%</p>
+                <p class="text-sm font-bold text-slate-500">최종 비중 {{ formatPercent(item.weight) }}%</p>
+                <p v-if="item.raw_weight !== item.weight" class="text-xs font-bold text-amber-600">
+                  1차 {{ formatPercent(item.raw_weight) }}% → Cap 후 {{ formatPercent(item.weight) }}%
+                </p>
               </div>
               <RouterLink class="btn-primary" :to="{ name: 'stock-report', params: { ticker: item.ticker } }">리포트 보기</RouterLink>
             </div>
@@ -130,7 +161,7 @@
 
           <div v-if="!portfolio.items?.length" class="panel p-7">
             <h3 class="text-2xl font-black text-slate-950">오늘은 추천 조건을 만족한 종목이 없습니다.</h3>
-            <p class="mt-2 text-slate-600">회사 가치와 진입 타이밍이 모두 70점 이상인 종목이 없으므로 관찰 후보만 표시합니다.</p>
+            <p class="mt-2 text-slate-600">성향별 회사 가치·진입 타이밍 허들을 모두 통과한 종목이 없어 현금 100%와 관찰 후보만 표시합니다.</p>
           </div>
         </div>
       </div>
@@ -194,9 +225,9 @@ const loading = ref(true);
 const error = ref("");
 const riskType = ref("neutral");
 const riskOptions = [
-  { value: "neutral", label: "중립형", description: "기업 점수 45%, 타이밍 점수 55%를 반영합니다." },
-  { value: "aggressive", label: "공격형", description: "주도주 모멘텀과 피벗 돌파 등 타이밍 점수를 더 강하게 반영합니다." },
-  { value: "stable", label: "안정형", description: "가치/퀄리티, ROE, EPS 가속도 등 기업 점수를 더 강하게 반영합니다." },
+  { value: "neutral", label: "중립형", description: "회사 70점·타이밍 70점·신뢰도 70점 기준으로 균형 있게 편입합니다." },
+  { value: "aggressive", label: "공격형", description: "회사 65점·타이밍 75점·신뢰도 65점 기준으로 주도주 타이밍을 더 중시합니다." },
+  { value: "stable", label: "안정형", description: "회사 75점·타이밍 65점·신뢰도 75점 기준으로 우량성과 데이터 신뢰도를 더 중시합니다." },
 ];
 
 const selectedRiskDescription = computed(
@@ -224,6 +255,19 @@ function setRiskType(value) {
   if (riskType.value === value) return;
   riskType.value = value;
   loadDashboard();
+}
+
+function formatScore(value) {
+  return Number(value || 0).toFixed(1);
+}
+
+function formatPercent(value) {
+  const numberValue = Number(value || 0);
+  return Number.isInteger(numberValue) ? String(numberValue) : numberValue.toFixed(1);
+}
+
+function allocationBarClass(item) {
+  return item.type === "cash" ? "bg-amber-400" : "bg-emerald-500";
 }
 
 onMounted(loadDashboard);

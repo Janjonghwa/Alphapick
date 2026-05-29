@@ -7,7 +7,7 @@ flowchart TD
   User["User"] --> Home["View today's alpha portfolio"]
   Home --> Items["Check 70+ recommended stocks and score-above-threshold weights"]
   Items --> Report["Open stock score report"]
-  Report --> Analysis["Review chart, score cards, CAN SLIM, news"]
+  Report --> Analysis["Review chart, score cards, indicators, news"]
   User --> Search["Search/filter all stocks"]
   User --> Backtest["View portfolio vs KOSPI backtest"]
   User --> Watchlist["Save/remove watchlist item"]
@@ -45,7 +45,7 @@ erDiagram
     float timing_score
     float reliability_score
     json score_cards
-    json can_slim
+    json scoring_log
   }
 
   PortfolioRun {
@@ -79,11 +79,14 @@ sequenceDiagram
   participant DB
 
   User->>Vue: open home
-  Vue->>API: GET /api/portfolio/today/
-  API->>Engine: get_today_portfolio()
+  Vue->>API: GET /api/portfolio/today/?risk_type=neutral
+  API->>Engine: build_dynamic_portfolio_payload(risk_type)
   Engine->>DB: load latest ScoreSnapshot
-  Engine->>DB: filter total_score >= 70 and reliability >= 70
-  Engine->>DB: update PortfolioRun and PortfolioItem weights
-  API-->>Vue: portfolio JSON
-  Vue-->>User: show weighted alpha portfolio
+  Engine->>Engine: apply risk-specific hurdles
+  Note over Engine: Neutral company>=70, timing>=70, reliability>=70
+  Engine->>Engine: calculate base cash from pass count and marketDirection
+  Engine->>Engine: allocate stock weights by eligibility score
+  Engine->>Engine: apply Sector Cap and move undistributable excess to cash
+  API-->>Vue: portfolio JSON with items, allocationItems, cashWeight
+  Vue-->>User: show stock/cash allocation and score report links
 ```

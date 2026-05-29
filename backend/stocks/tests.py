@@ -15,7 +15,7 @@ class AlphaPickPortfolioTests(TestCase):
 
         self.assertIsNotNone(portfolio)
         self.assertGreater(portfolio.items.count(), 0)
-        self.assertAlmostEqual(sum(item.weight for item in portfolio.items.all()), 100, delta=0.1)
+        self.assertLessEqual(sum(item.weight for item in portfolio.items.all()), 100.1)
         self.assertTrue(
             all(
                 item.score_snapshot.company_score >= PORTFOLIO_THRESHOLD
@@ -29,15 +29,32 @@ class AlphaPickPortfolioTests(TestCase):
 
         portfolio = client.get("/api/portfolio/today/")
         self.assertEqual(portfolio.status_code, 200)
-        self.assertEqual(round(sum(item["weight"] for item in portfolio.json()["items"]), 1), 100)
+        payload = portfolio.json()
+        stock_weight = round(sum(item["weight"] for item in payload["items"]), 1)
+        self.assertAlmostEqual(stock_weight + round(payload["cashWeight"], 1), 100, delta=0.2)
         self.assertEqual(portfolio.json()["userRiskType"], "neutral")
         self.assertTrue(
             all(item["company_score"] >= PORTFOLIO_THRESHOLD and item["timing_score"] >= PORTFOLIO_THRESHOLD for item in portfolio.json()["items"])
         )
+        self.assertIn("allocationItems", payload)
+        self.assertIn("sectorCap", payload)
 
         aggressive = client.get("/api/portfolio/today/?risk_type=aggressive")
         self.assertEqual(aggressive.status_code, 200)
         self.assertEqual(aggressive.json()["userRiskType"], "aggressive")
+        stable = client.get("/api/portfolio/today/?risk_type=stable")
+        self.assertEqual(stable.status_code, 200)
+        self.assertEqual(stable.json()["userRiskType"], "stable")
+        self.assertGreaterEqual(
+            len(
+                {
+                    aggressive.json()["baseCashWeight"],
+                    portfolio.json()["baseCashWeight"],
+                    stable.json()["baseCashWeight"],
+                }
+            ),
+            2,
+        )
 
         stocks = client.get("/api/stocks/")
         self.assertEqual(stocks.status_code, 200)

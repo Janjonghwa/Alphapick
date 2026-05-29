@@ -40,6 +40,40 @@ RISK_WEIGHTS = {
         "timing": 0.38,
     },
 }
+RISK_HURDLES = {
+    RISK_TYPE_AGGRESSIVE: {
+        "company": 65,
+        "timing": 75,
+        "reliability": 65,
+        "sector_cap": 35,
+    },
+    RISK_TYPE_NEUTRAL: {
+        "company": 70,
+        "timing": 70,
+        "reliability": 70,
+        "sector_cap": 30,
+    },
+    RISK_TYPE_STABLE: {
+        "company": 75,
+        "timing": 65,
+        "reliability": 75,
+        "sector_cap": 25,
+    },
+}
+CASH_POLICY_BY_RISK = {
+    RISK_TYPE_AGGRESSIVE: {
+        "breadth": {"strong": 0, "neutral": 10, "weak": 20, "crisis": 100},
+        "market": {"strong": 0, "neutral": 10, "weak": 20, "crisis": 35},
+    },
+    RISK_TYPE_NEUTRAL: {
+        "breadth": {"strong": 0, "neutral": 15, "weak": 30, "crisis": 100},
+        "market": {"strong": 0, "neutral": 15, "weak": 30, "crisis": 50},
+    },
+    RISK_TYPE_STABLE: {
+        "breadth": {"strong": 5, "neutral": 20, "weak": 35, "crisis": 100},
+        "market": {"strong": 5, "neutral": 20, "weak": 40, "crisis": 60},
+    },
+}
 
 
 def normalize_risk_type(value):
@@ -67,10 +101,11 @@ def latest_scores_queryset(base_date=None):
 
 
 def portfolio_candidates(base_date=None):
+    hurdles = hurdles_for_risk(RISK_TYPE_NEUTRAL)
     return latest_scores_queryset(base_date).filter(
-        reliability_score__gte=MIN_RELIABILITY_SCORE,
-        company_score__gte=MIN_COMPONENT_SCORE,
-        timing_score__gte=MIN_COMPONENT_SCORE,
+        reliability_score__gte=hurdles["reliability"],
+        company_score__gte=hurdles["company"],
+        timing_score__gte=hurdles["timing"],
         stock__is_active=True,
         stock__is_tradable=True,
         stock__is_universe_included=True,
@@ -82,13 +117,14 @@ def portfolio_candidates(base_date=None):
 
 
 def watch_candidates(base_date=None, limit=5):
+    hurdles = hurdles_for_risk(RISK_TYPE_NEUTRAL)
     return list(
         latest_scores_queryset(base_date)
         .filter(stock__is_active=True, stock__is_tradable=True)
         .exclude(
-            reliability_score__gte=MIN_RELIABILITY_SCORE,
-            company_score__gte=MIN_COMPONENT_SCORE,
-            timing_score__gte=MIN_COMPONENT_SCORE,
+            reliability_score__gte=hurdles["reliability"],
+            company_score__gte=hurdles["company"],
+            timing_score__gte=hurdles["timing"],
             stock__low_liquidity_flag=False,
             fail_safe_flag=False,
         )[:limit]
@@ -119,6 +155,142 @@ def timing_score_for_risk(score, risk_type=RISK_TYPE_NEUTRAL):
     return round(score.timing_score, 1)
 
 
+def hurdles_for_risk(risk_type):
+    return RISK_HURDLES[normalize_risk_type(risk_type)]
+
+
+def passes_entry_hurdles(company_score, timing_score, reliability_score, risk_type):
+    hurdles = hurdles_for_risk(risk_type)
+    return (
+        company_score >= hurdles["company"]
+        and timing_score >= hurdles["timing"]
+        and reliability_score >= hurdles["reliability"]
+    )
+
+
+def area_score_value(score, key):
+    value = (score.area_scores or {}).get(key)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def average_market_direction(rows):
+    values = [row["market_direction"] for row in rows if row.get("market_direction") is not None]
+    if not values:
+        return None
+    return round(sum(values) / len(values), 1)
+
+
+def cash_policy_for(items, rows, risk_type):
+    risk_type = normalize_risk_type(risk_type)
+    policy = CASH_POLICY_BY_RISK[risk_type]
+    pass_count = len(items)
+    if pass_count == 0:
+        breadth_key = "crisis"
+        breadth_label = "위기장"
+    elif pass_count <= 2:
+        breadth_key = "weak"
+        breadth_label = "약세장"
+    elif pass_count <= 4:
+        breadth_key = "neutral"
+        breadth_label = "중립장"
+    else:
+        breadth_key = "strong"
+        breadth_label = "강세장"
+    breadth_cash = policy["breadth"][breadth_key]
+
+    market_direction = average_market_direction(items) or average_market_direction(rows)
+    if market_direction is None:
+        market_cash = 0
+        market_label = "시장 방향 데이터 부족"
+    elif market_direction >= 65:
+        market_key = "strong"
+        market_label = "강세장"
+    elif market_direction >= 50:
+        market_key = "neutral"
+        market_label = "중립장"
+    elif market_direction >= 40:
+        market_key = "weak"
+        market_label = "약세장"
+    else:
+        market_key = "crisis"
+        market_label = "위기장"
+    if market_direction is not None:
+        market_cash = policy["market"][market_key]
+
+    cash_weight = max(breadth_cash, market_cash)
+    reasons = [
+        f"{RISK_LABELS[risk_type]} 편입 후보 {pass_count}개 기준 {breadth_label} 판단: 현금 {breadth_cash}%",
+    ]
+    if market_direction is not None:
+        reasons.append(f"{RISK_LABELS[risk_type]} 시장 방향 평균 {market_direction}점 기준 {market_label} 판단: 현금 {market_cash}%")
+    else:
+        reasons.append("시장 방향 평균을 계산할 수 없어 편입 후보 수 기준을 우선 적용")
+    return cash_weight, market_direction, market_label if market_cash >= breadth_cash else breadth_label, reasons
+
+
+def sector_totals(items):
+    totals = Counter()
+    for row in items:
+        totals[row["sector"] or "기타"] += row.get("weight", 0)
+    return totals
+
+
+def apply_sector_cap(items, sector_cap):
+    capped_sectors = []
+    sector_cash = 0
+    if not items:
+        return sector_cash, capped_sectors
+
+    for row in items:
+        row["sector_cap_reduction"] = 0
+        row["sector_cap_applied"] = False
+
+    totals = sector_totals(items)
+    excess = 0
+    for sector, total in list(totals.items()):
+        if total <= sector_cap:
+            continue
+        overflow = total - sector_cap
+        scale = sector_cap / total if total else 0
+        sector_rows = [row for row in items if (row["sector"] or "기타") == sector]
+        for row in sector_rows:
+            original_weight = row["weight"]
+            row["weight"] = original_weight * scale
+            reduction = original_weight - row["weight"]
+            row["sector_cap_reduction"] += reduction
+            row["sector_cap_applied"] = True
+        capped_sectors.append({"sector": sector, "excess": round(overflow, 2)})
+        excess += overflow
+
+    while excess > 0.01:
+        totals = sector_totals(items)
+        candidates = [row for row in items if totals[row["sector"] or "기타"] < sector_cap - 0.01]
+        if not candidates:
+            break
+        basis_sum = sum(max(row["eligibility_score"] - PORTFOLIO_THRESHOLD, 1) for row in candidates)
+        allocated = 0
+        for row in candidates:
+            sector = row["sector"] or "기타"
+            capacity = max(sector_cap - totals[sector], 0)
+            if capacity <= 0:
+                continue
+            basis = max(row["eligibility_score"] - PORTFOLIO_THRESHOLD, 1)
+            proposed = excess * (basis / basis_sum) if basis_sum else excess / len(candidates)
+            addition = min(proposed, capacity)
+            row["weight"] += addition
+            totals[sector] += addition
+            allocated += addition
+        if allocated <= 0.01:
+            break
+        excess -= allocated
+
+    sector_cash = max(excess, 0)
+    return sector_cash, capped_sectors
+
+
 def sector_warning_for(scores):
     sectors = Counter(getattr(score, "sector", None) or score.stock.sector for score in scores)
     if not sectors:
@@ -131,19 +303,19 @@ def sector_warning_for(scores):
 
 def build_portfolio_summary(scores):
     if not scores:
-        return "오늘은 회사 가치와 진입 타이밍이 모두 70점을 넘긴 종목이 없습니다. 관찰 후보를 확인하고 다음 리밸런싱을 기다려주세요."
+        return "오늘은 중립형 기준 회사 가치와 진입 타이밍이 모두 70점을 넘긴 종목이 없습니다. 관찰 후보를 확인하고 다음 리밸런싱을 기다려주세요."
     avg_score = sum(weighted_component_score(score) for score in scores) / len(scores)
     top_reasons = " · ".join(score.stock.name for score in scores[:3])
-    return f"{len(scores)}개 종목이 회사 가치 70점 이상, 진입 타이밍 70점 이상 조건을 통과했습니다. 평균 균형 점수는 {avg_score:.1f}점이며 핵심 편입 종목은 {top_reasons}입니다."
+    return f"{len(scores)}개 종목이 중립형 기준 회사 가치 70점 이상, 진입 타이밍 70점 이상 조건을 통과했습니다. 평균 균형 점수는 {avg_score:.1f}점이며 핵심 편입 종목은 {top_reasons}입니다."
 
 
 def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL):
     risk_type = normalize_risk_type(risk_type)
+    hurdles = hurdles_for_risk(risk_type)
     base_date = base_date or latest_score_date() or date.today()
     scores = list(
         latest_scores_queryset(base_date)
         .filter(
-            reliability_score__gte=MIN_RELIABILITY_SCORE,
             stock__is_active=True,
             stock__is_tradable=True,
             stock__is_universe_included=True,
@@ -158,6 +330,8 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
         company_score = company_score_for_risk(score, risk_type)
         timing_score = timing_score_for_risk(score, risk_type)
         eligibility_score = weighted_component_score(score, risk_type)
+        reliability_score = round(score.reliability_score, 1)
+        passes_hurdles = passes_entry_hurdles(company_score, timing_score, reliability_score, risk_type)
         rows.append(
             {
                 "score_obj": score,
@@ -170,8 +344,10 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
                 "eligibility_score": round(eligibility_score, 1),
                 "company_score": company_score,
                 "timing_score": timing_score,
-                "reliability_score": round(score.reliability_score, 1),
-                "passes_company_timing": company_score >= MIN_COMPONENT_SCORE and timing_score >= MIN_COMPONENT_SCORE,
+                "reliability_score": reliability_score,
+                "passes_company_timing": passes_hurdles,
+                "passes_hurdles": passes_hurdles,
+                "market_direction": area_score_value(score, "marketDirection"),
                 "signal": score.signal,
                 "key_reason": score.key_reason or score.reason,
                 "rs_rank": score.rs_rank,
@@ -196,10 +372,29 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
         and not row["low_liquidity_flag"]
         and not row["fail_safe_flag"]
     ]
+    base_cash_weight, market_direction, market_regime, cash_reasons = cash_policy_for(items, rows, risk_type)
+    equity_budget = max(100 - base_cash_weight, 0)
     score_sum = sum(max(row["eligibility_score"] - PORTFOLIO_THRESHOLD, 1) for row in items)
     for row in items:
         score_edge = max(row["eligibility_score"] - PORTFOLIO_THRESHOLD, 1)
-        row["weight"] = round((score_edge / score_sum) * 100, 2) if score_sum else 0
+        row["raw_weight"] = (score_edge / score_sum) * equity_budget if score_sum else 0
+        row["weight"] = row["raw_weight"]
+
+    sector_cash_weight, capped_sectors = apply_sector_cap(items, hurdles["sector_cap"])
+    stock_weight_sum = sum(row["weight"] for row in items)
+    cash_weight = max(0, 100 - stock_weight_sum)
+    sector_cash_weight = max(0, cash_weight - base_cash_weight)
+    if sector_cash_weight > 0.01:
+        cash_reasons.append(f"섹터 Cap 재분배 불가 비중 {sector_cash_weight:.1f}%를 현금으로 전환")
+
+    for row in items:
+        row["raw_weight"] = round(row.get("raw_weight", 0), 2)
+        row["weight"] = round(row["weight"], 2)
+        row["sector_cap_reduction"] = round(row.get("sector_cap_reduction", 0), 2)
+
+    base_cash_weight = round(base_cash_weight, 2)
+    cash_weight = round(max(0, 100 - sum(row["weight"] for row in items)), 2)
+    sector_cash_weight = round(max(0, cash_weight - base_cash_weight), 2)
     item_tickers = {row["ticker"] for row in items}
     watch_rows = [row for row in rows if row["ticker"] not in item_tickers][:5]
     watch_candidates_payload = [
@@ -223,19 +418,48 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
         }
         for row in watch_rows
     ]
+    allocation_items = [
+        {
+            "type": "stock",
+            "ticker": row["ticker"],
+            "name": row["name"],
+            "sector": row["sector"],
+            "weight": row["weight"],
+        }
+        for row in items
+    ]
+    if cash_weight > 0:
+        allocation_items.append(
+            {
+                "type": "cash",
+                "ticker": "CASH",
+                "name": "현금",
+                "sector": "현금",
+                "weight": cash_weight,
+            }
+        )
     item_payload = []
     for row in items:
         clean_row = row.copy()
         clean_row.pop("score_obj", None)
+        clean_row.pop("market_direction", None)
         item_payload.append(clean_row)
     portfolio_score = round(sum(row["total_score"] for row in items) / len(items), 2) if items else 0
     eligibility_average = round(sum(row["eligibility_score"] for row in items) / len(items), 2) if items else 0
-    sector_warning = sector_warning_for([type("PortfolioSector", (), row) for row in items])
+    sector_messages = [
+        f"{item['sector']} 섹터가 최대 {hurdles['sector_cap']}%를 초과해 {item['excess']}%를 재배분했습니다."
+        for item in capped_sectors
+    ]
+    sector_warning = " ".join(sector_messages)
     if not items:
-        summary = f"{RISK_LABELS[risk_type]} 기준 회사 가치와 진입 타이밍이 모두 70점을 넘긴 종목이 없습니다. 관찰 후보 TOP 5를 확인하세요."
+        summary = f"{RISK_LABELS[risk_type]} 기준 편입 허들을 통과한 종목이 없어 주식 비중을 0%로 두고 현금 100%를 권장합니다. 관찰 후보 TOP 5를 확인하세요."
     else:
         names = " · ".join(row["name"] for row in items[:3])
-        summary = f"{RISK_LABELS[risk_type]} 기준 {len(items)}개 종목이 회사 가치 70점 이상, 진입 타이밍 70점 이상 조건을 통과했습니다. 평균 균형 점수는 {eligibility_average:.1f}점이며 핵심 편입 종목은 {names}입니다."
+        summary = (
+            f"{RISK_LABELS[risk_type]} 기준 {len(items)}개 종목이 편입 허들을 통과했습니다. "
+            f"평균 균형 점수는 {eligibility_average:.1f}점이며 핵심 편입 종목은 {names}입니다. "
+            f"시장/분산 리스크를 반영해 현금 {cash_weight:.1f}%를 함께 권장합니다."
+        )
     return {
         "baseDate": base_date.isoformat(),
         "portfolioScore": portfolio_score,
@@ -243,6 +467,19 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
         "rebalanceType": "daily",
         "threshold": PORTFOLIO_THRESHOLD,
         "companyTimingThreshold": MIN_COMPONENT_SCORE,
+        "hurdles": {
+            "company": hurdles["company"],
+            "timing": hurdles["timing"],
+            "reliability": hurdles["reliability"],
+        },
+        "sectorCap": hurdles["sector_cap"],
+        "cashWeight": cash_weight,
+        "baseCashWeight": base_cash_weight,
+        "sectorCashWeight": sector_cash_weight,
+        "cashReasons": cash_reasons,
+        "marketDirectionScore": market_direction,
+        "marketRegime": market_regime,
+        "allocationItems": allocation_items,
         "userRiskType": risk_type,
         "riskTypeLabel": RISK_LABELS[risk_type],
         "summary": summary,
@@ -255,7 +492,8 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
             "threshold": PORTFOLIO_THRESHOLD,
             "companyTimingThreshold": MIN_COMPONENT_SCORE,
             "itemCount": len(items),
-            "message": "회사 가치와 진입 타이밍이 모두 70점 이상인 종목을 편입한 MVP 백테스트 요약은 /api/portfolio/backtest/에서 제공합니다.",
+            "cashWeight": cash_weight,
+            "message": "성향별 회사/타이밍 허들과 현금 비중, 섹터 Cap을 반영한 백테스트 요약은 /api/portfolio/backtest/에서 제공합니다.",
         },
     }
 
@@ -263,31 +501,34 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
 @transaction.atomic
 def ensure_portfolio_run(base_date=None):
     base_date = base_date or latest_score_date() or date.today()
-    scores = list(portfolio_candidates(base_date))
-    score_sum = sum(max(weighted_component_score(score) - PORTFOLIO_THRESHOLD, 1) for score in scores)
-    portfolio_score = round(sum(score.total_score for score in scores) / len(scores), 2) if scores else 0
+    payload = build_dynamic_portfolio_payload(base_date=base_date, risk_type=RISK_TYPE_NEUTRAL)
+    scores = {
+        score.stock_id: score
+        for score in ScoreSnapshot.objects.filter(base_date=base_date).select_related("stock")
+    }
 
     run, _ = PortfolioRun.objects.update_or_create(
         base_date=base_date,
         defaults={
             "threshold": PORTFOLIO_THRESHOLD,
             "rebalance_type": "daily",
-            "portfolio_score": portfolio_score,
-            "summary": build_portfolio_summary(scores),
-            "sector_warning": sector_warning_for(scores),
+            "portfolio_score": payload["portfolioScore"],
+            "summary": payload["summary"],
+            "sector_warning": payload["sectorWarning"],
         },
     )
     run.items.all().delete()
 
-    for score in scores:
-        score_edge = max(weighted_component_score(score) - PORTFOLIO_THRESHOLD, 1)
-        weight = round((score_edge / score_sum) * 100, 2) if score_sum else 0
+    for item in payload["items"]:
+        score = scores.get(item["ticker"])
+        if not score:
+            continue
         PortfolioItem.objects.create(
             portfolio_run=run,
             stock=score.stock,
             score_snapshot=score,
             score=score.total_score,
-            weight=weight,
+            weight=item["weight"],
             reason=score.reason,
             warning=score.warning,
         )
@@ -366,20 +607,18 @@ def portfolio_price_series(items, start_date, end_date):
     total_weight = sum(stock["weight"] for stock in weighted_stocks)
     if not weighted_stocks or total_weight <= 0:
         return []
+    cash_weight = max(0, 100 - total_weight)
 
     dates = sorted({row_date for stock in weighted_stocks for row_date in stock["prices"]})
     series = []
     for row_date in dates:
-        portfolio_value = 0
-        active_weight = 0
+        portfolio_value = cash_weight
         for stock in weighted_stocks:
             if row_date in stock["prices"]:
                 stock["last_price"] = stock["prices"][row_date]
             if stock["last_price"]:
-                active_weight += stock["weight"]
                 portfolio_value += stock["weight"] * (stock["last_price"] / stock["start_price"])
-        if active_weight:
-            series.append({"date": row_date, "value": round((portfolio_value / active_weight) * 100, 4)})
+        series.append({"date": row_date, "value": round(portfolio_value, 4)})
     return series
 
 
@@ -483,6 +722,7 @@ def calculate_backtest(benchmark="KOSPI", period="1y", risk_type=RISK_TYPE_NEUTR
     start_date = end_date - timedelta(days=BACKTEST_PERIODS[period]["days"])
     portfolio_payload = build_dynamic_portfolio_payload(risk_type=risk_type)
     items = portfolio_payload.get("items", [])
+    cash_weight = portfolio_payload.get("cashWeight", 0)
     if not items:
         return {
             "benchmark": benchmark,
@@ -523,8 +763,9 @@ def calculate_backtest(benchmark="KOSPI", period="1y", risk_type=RISK_TYPE_NEUTR
         "winRate": win_rate,
         "maxDrawdown": max_drawdown,
         "itemCount": len(items),
+        "cashWeight": cash_weight,
         "series": series,
-        "summary": f"현재 {RISK_LABELS[risk_type]} 추천 포트폴리오를 {BACKTEST_PERIODS[period]['label']} 전 매수해 보유했다고 가정한 수익률입니다.",
+        "summary": f"현재 {RISK_LABELS[risk_type]} 추천 포트폴리오를 {BACKTEST_PERIODS[period]['label']} 전 매수해 보유했다고 가정한 수익률입니다. 현금 {cash_weight}%는 가격 변동 없이 보유한 것으로 계산합니다.",
     }
 
 
@@ -553,9 +794,15 @@ def generate_ai_comment(ticker, risk_type=RISK_TYPE_NEUTRAL):
     if metric and metric.current_price and metric.target_price:
         upside = round((metric.target_price - metric.current_price) / metric.current_price * 100, 1)
 
-    component_pass = score.company_score >= MIN_COMPONENT_SCORE and score.timing_score >= MIN_COMPONENT_SCORE
+    hurdles = hurdles_for_risk(risk_type)
+    component_pass = passes_entry_hurdles(
+        score.company_score,
+        score.timing_score,
+        score.reliability_score,
+        risk_type,
+    )
     pass_text = "포트폴리오 후보 조건을 통과합니다" if component_pass else "포트폴리오 후보 조건은 추가 확인이 필요합니다"
-    positive = f"{stock.name}은 {positive_title} 점수가 강하고, 회사 {score.company_score:.1f}점·타이밍 {score.timing_score:.1f}점으로 {RISK_LABELS[risk_type]} 기준 {pass_text}."
+    positive = f"{stock.name}은 {positive_title} 점수가 강하고, 회사 {score.company_score:.1f}점·타이밍 {score.timing_score:.1f}점으로 {RISK_LABELS[risk_type]} 허들(회사 {hurdles['company']}점·타이밍 {hurdles['timing']}점) 기준 {pass_text}."
     negative = f"다만 {negative_title} 항목과 '{score.warning or '단기 변동성'}' 이슈는 진입 전 확인이 필요합니다."
     conclusion = f"목표가 기준 상승 여력은 약 {upside}%이며, 현재 판단은 '{score.verdict}'입니다. 본 결과는 투자 참고용 분석입니다."
 

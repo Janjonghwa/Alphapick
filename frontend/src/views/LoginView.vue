@@ -28,8 +28,8 @@ const form = reactive({ username: "", password: "" });
 async function submit() {
   error.value = "";
   try {
-    const user = await auth.login(form);
-    router.push(route.query.next || (user.onboarding_completed ? "/dashboard" : "/onboarding"));
+    await auth.login(form);
+    router.push(route.query.next || "/");
   } catch {
     error.value = "로그인 정보를 확인해 주세요.";
   }

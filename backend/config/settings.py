@@ -29,7 +29,7 @@ def env_bool(name, default=False):
     return value.lower() in {"1", "true", "yes", "on"}
 
 
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-outfit-secret-key-with-32-plus-chars")
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-alphapick-secret-key-with-32-plus-chars")
 DEBUG = env_bool("DEBUG", True)
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",") if host.strip()]
 
@@ -44,11 +44,6 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "accounts",
-    "catalog",
-    "reviews",
-    "workouts",
-    "recommendations",
-    "data_ingest",
     "stocks",
 ]
 

@@ -4,16 +4,17 @@
 
 ```txt
 +-------------------------------------------------------------+
-| AlphaPick     Portfolio | Stocks | Backtest     70+ only    |
+| AlphaPick     Portfolio | Stocks | Backtest   Cash+SectorCap |
 +-------------------------------------------------------------+
 | Hero                                                        |
 | "Today's alpha portfolio"                                  |
-| Policy chips: threshold 70 / excess-score weights / daily update |
+| Policy chips: risk hurdles / cash weight / sector cap / daily update |
 +---------------------------+---------------------------------+
 | Portfolio summary         | Stock card                      |
 | - base date               | - name / ticker / sector        |
 | - portfolio score         | - total score                   |
 | - item count              | - weight                        |
+| - cash weight             | - sector cap badge              |
 | - weight bars             | - reason / warning              |
 |                           | - report button                 |
 +---------------------------+---------------------------------+
@@ -34,7 +35,7 @@
 +-------------------------------------------------------------+
 | Price chart: Close, EMA20, EMA50, EMA200, Bollinger, Volume |
 +------------------------+------------------------------------+
-| Left sticky summary     | CAN SLIM analysis                 |
+| Left sticky summary     | Score explanation                 |
 | - total score           | Score cards grid                  |
 | - company/timing matrix | Technical indicators              |
 | - current/target price  | Financial indicators              |
