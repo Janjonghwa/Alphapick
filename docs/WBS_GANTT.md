@@ -1,42 +1,41 @@
-# WBS and Gantt
+# WBS 및 일정
 
-## WBS
+## 작업 분해
 
-| Level | Task | Output |
+| 단계 | 작업 | 산출물 |
 |---|---|---|
-| 1 | AlphaPick MVP | Final portfolio recommendation service |
-| 2 | Planning | PRD, WBS, UML, wireframe |
-| 3 | Product policy | 70-point threshold, daily rebalance, excess-score-weighted portfolio |
-| 3 | Data design | stock, price, metric, score, portfolio entities |
-| 2 | Backend | Django/DRF stock recommendation APIs |
-| 3 | Models | `Stock`, `PriceDaily`, `FinancialMetric`, `ScoreSnapshot`, `PortfolioRun`, `PortfolioItem`, `Watchlist` |
-| 3 | Seed data | `seed_alphapick --flush` |
-| 3 | Portfolio engine | threshold filtering, score weights, watch candidates |
-| 3 | Backtest | MVP series vs KOSPI |
-| 2 | Frontend | Vue 3 presentation UI |
-| 3 | Home | today's alpha portfolio |
-| 3 | Stock report | score report based on the reference image |
-| 3 | Search | stock list and score filter |
-| 3 | Backtest | portfolio vs benchmark chart |
-| 2 | QA | final tests and API smoke checks |
+| 1 | 요구사항 정의 | PRD, 추천 정책 명세 |
+| 2 | 데이터 모델 설계 | Stock, PriceDaily, ScoreSnapshot, Portfolio 모델 |
+| 3 | 점수 엔진 구현 | 회사 점수, 타이밍 점수, 신뢰도 점수 |
+| 4 | 포트폴리오 엔진 구현 | 성향별 허들, 현금 비중, 섹터 제한 |
+| 5 | API 구현 | 포트폴리오, 종목, 리포트, AI 코멘트 API |
+| 6 | 기본 대시보드 구현 | 시장 지표 스트립, 편입 종목 상위 15개 |
+| 7 | 오늘의 포트폴리오 화면 구현 | 편입 종목 전체 테이블 |
+| 8 | 종목 검색 및 리포트 구현 | 검색, 상세 차트, 점수 카드, 지표 |
+| 9 | 사용자 기능 구현 | 로그인, 회원가입, 마이페이지, 관심 종목 |
+| 10 | UI 정리 | 네이비/민트 금융 대시보드 디자인 |
+| 11 | QA | 백엔드 검사, 프론트 빌드, API 스모크 테스트 |
+| 12 | 발표 준비 | 발표 대본, 시연 흐름, 문서 정리 |
 
-## Gantt
+## 간트 차트
 
 ```mermaid
 gantt
-  title AlphaPick Final Build
+  title AlphaPick 개발 일정
   dateFormat  YYYY-MM-DD
-  section Planning
-  PRD/WBS/UML/Wireframe      :done, 2026-05-22, 1d
-  section Backend
-  Stock models and API       :done, 2026-05-22, 1d
-  Portfolio and score engine :done, 2026-05-22, 1d
-  Seed fixtures              :done, 2026-05-22, 1d
-  section Frontend
-  Portfolio home             :done, 2026-05-22, 1d
-  Stock report               :done, 2026-05-22, 1d
-  Search and backtest        :done, 2026-05-22, 1d
-  section QA
-  Backend checks/tests       :done, 2026-05-22, 1d
-  Frontend build             :done, 2026-05-22, 1d
+  section 기획
+  요구사항 정의              :done, 2026-05-20, 2d
+  추천 정책 명세             :done, 2026-05-22, 2d
+  section 백엔드
+  데이터 모델 설계           :done, 2026-05-24, 3d
+  점수 엔진 구현             :done, 2026-05-27, 5d
+  포트폴리오 엔진 구현       :done, 2026-06-01, 5d
+  API 구현                   :done, 2026-06-06, 4d
+  section 프론트엔드
+  기본 대시보드 구현         :done, 2026-06-10, 3d
+  포트폴리오 전체 화면 구현  :done, 2026-06-13, 2d
+  종목 검색/리포트 구현      :done, 2026-06-15, 5d
+  UI 디자인 정리             :done, 2026-06-20, 2d
+  section 마무리
+  QA 및 문서 정리            :done, 2026-06-22, 2d
 ```

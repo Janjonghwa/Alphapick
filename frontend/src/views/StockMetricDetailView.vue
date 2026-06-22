@@ -2,7 +2,7 @@
   <section class="page-shell py-8">
     <RouterLink
       :to="{ name: 'stock-report', params: { ticker } }"
-      class="inline-flex items-center rounded-full bg-slate-100 px-4 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-200"
+      class="inline-flex items-center rounded-full bg-slate-100 px-4 py-2 text-sm font-extrabold text-slate-600 transition hover:bg-slate-200"
     >
       ← 리포트로 돌아가기
     </RouterLink>
@@ -12,8 +12,8 @@
 
     <template v-else>
       <div class="mt-5 rounded-lg border border-slate-800 bg-slate-300 p-7">
-        <p class="text-sm font-black text-slate-700">{{ report.stock.name }} · {{ report.stock.ticker }} · {{ report.score.base_date }}</p>
-        <h1 class="mt-3 text-4xl font-black leading-tight text-slate-950">{{ detail.title }}</h1>
+        <p class="text-sm font-extrabold text-slate-700">{{ report.stock.name }} · {{ report.stock.ticker }} · {{ report.score.base_date }}</p>
+        <h1 class="mt-3 text-4xl font-extrabold leading-tight text-slate-950">{{ detail.title }}</h1>
         <p class="mt-3 max-w-4xl text-lg font-bold leading-8 text-slate-700">{{ detail.summary }}</p>
         <div class="mt-5 flex flex-wrap gap-2">
           <span class="badge bg-slate-950 text-white">{{ sectionLabel }}</span>
@@ -25,14 +25,14 @@
       <div class="mt-6 grid gap-6 lg:grid-cols-[320px_1fr]">
         <aside class="space-y-4">
           <div class="panel p-5">
-            <p class="text-sm font-black text-slate-500">현재 리포트 값</p>
-            <p class="mt-3 text-5xl font-black tabular-nums" :class="scoreColor(numericValue)">{{ displayValue }}</p>
-            <p v-if="detail.status" class="mt-2 text-sm font-black text-emerald-600">{{ detail.status }}</p>
+            <p class="text-sm font-extrabold text-slate-500">현재 리포트 값</p>
+            <p class="mt-3 text-5xl font-extrabold tabular-nums" :class="scoreColor(numericValue)">{{ displayValue }}</p>
+            <p v-if="detail.status" class="mt-2 text-sm font-extrabold text-emerald-600">{{ detail.status }}</p>
           </div>
 
           <div class="panel p-5">
-            <p class="text-sm font-black text-slate-500">최종 종합 점수</p>
-            <p class="mt-3 text-5xl font-black text-slate-950">{{ formatScore(report.score.total_score) }}</p>
+            <p class="text-sm font-extrabold text-slate-500">최종 종합 점수</p>
+            <p class="mt-3 text-5xl font-extrabold text-slate-950">{{ formatScore(report.score.total_score) }}</p>
             <p class="mt-2 text-sm font-bold leading-6 text-slate-500">
               회사 점수 {{ formatScore(report.score.company_score) }}점과 타이밍 점수 {{ formatScore(report.score.timing_score) }}점을 합산한 뒤,
               과열·낙폭·시장 방향 리스크를 할인합니다.
@@ -62,7 +62,7 @@
           <DetailBlock title="4. 현재 종목 해석" :body="detail.interpretation" />
 
           <section class="panel p-5">
-            <h2 class="border-l-4 border-emerald-500 pl-3 text-2xl font-black text-slate-950">관련 계산 로그</h2>
+            <h2 class="border-l-4 border-emerald-500 pl-3 text-2xl font-extrabold text-slate-950">관련 계산 로그</h2>
             <div class="mt-5 space-y-2">
               <p
                 v-for="log in relatedLogs"
@@ -316,7 +316,7 @@ const DetailBlock = defineComponent({
   setup(blockProps) {
     return () =>
       h("section", { class: "panel p-5" }, [
-        h("h2", { class: "border-l-4 border-emerald-500 pl-3 text-2xl font-black text-slate-950" }, blockProps.title),
+        h("h2", { class: "border-l-4 border-emerald-500 pl-3 text-2xl font-extrabold text-slate-950" }, blockProps.title),
         h("p", { class: "mt-4 whitespace-pre-line text-base font-bold leading-8 text-slate-700" }, blockProps.body),
       ]);
   },

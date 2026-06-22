@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell flex min-h-[calc(100vh-65px)] items-center justify-center py-8">
     <form class="panel w-full max-w-xl p-6" @submit.prevent="submit">
-      <h1 class="text-3xl font-black text-slate-950">회원가입</h1>
+      <h1 class="text-3xl font-extrabold text-slate-950">회원가입</h1>
 
       <div class="mt-6 grid gap-4 md:grid-cols-2">
         <label class="block text-sm font-bold text-slate-700">

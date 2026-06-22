@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.db.models import Q
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
@@ -98,6 +100,57 @@ class PortfolioBacktestView(APIView):
         period = request.query_params.get("period", "1y")
         risk_type = normalize_risk_type(request.query_params.get("risk_type"))
         return Response(calculate_backtest(benchmark=benchmark, period=period, risk_type=risk_type))
+
+
+class MarketMacroView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response(
+            {
+                "asOf": date.today().isoformat(),
+                "sentiment": {
+                    "score": 42,
+                    "label": "공포",
+                    "level": "fear",
+                    "summary": "변동성은 완화됐지만 지수 모멘텀은 아직 방어적입니다.",
+                },
+                "items": [
+                    {"key": "vix", "label": "VIX", "value": 16.40, "change": -11.06, "unit": "%", "invert": True},
+                    {"key": "sp500", "label": "S&P500", "value": 7500.58, "change": 1.08, "unit": "%"},
+                    {"key": "nasdaq", "label": "나스닥", "value": 26517.93, "change": 1.91, "unit": "%"},
+                    {"key": "kospi", "label": "KOSPI", "value": 9147.24, "change": 1.05, "unit": "%"},
+                    {"key": "usdkrw", "label": "원/달러", "value": 1538.8, "change": 0.08, "unit": "%"},
+                    {"key": "dxy", "label": "DXY", "value": 100.86, "change": 0.01, "unit": "%"},
+                    {"key": "us10y", "label": "美10Y", "value": 4.45, "change": -0.27, "unit": "%", "valueSuffix": "%"},
+                    {"key": "gold", "label": "금", "value": 4172.9, "change": -1.21, "unit": "%"},
+                    {"key": "wti", "label": "WTI", "value": 75.53, "change": -1.40, "unit": "%"},
+                    {"key": "btc", "label": "BTC", "value": 64448, "change": 0.32, "unit": "%"},
+                    {"key": "us_rate", "label": "美기준금리", "value": 3.75, "valueSuffix": "%"},
+                    {"key": "kr_rate", "label": "韓기준금리", "value": 2.50, "valueSuffix": "%"},
+                ],
+                "source": "데모 fallback 데이터",
+                "updatedAgo": "14분 전 갱신",
+            }
+        )
+
+
+class MarketEventsView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        today = date.today()
+        events = [
+            {"kind": "nfp", "label": "고용", "name": "고용보고서 (6월)", "date": "2026-07-03"},
+            {"kind": "cpi", "label": "CPI", "name": "CPI (6월)", "date": "2026-07-14"},
+            {"kind": "fomc", "label": "FOMC", "name": "FOMC 회의", "date": "2026-07-29"},
+            {"kind": "nfp", "label": "고용", "name": "고용보고서 (7월)", "date": "2026-08-07"},
+            {"kind": "cpi", "label": "CPI", "name": "CPI (7월)", "date": "2026-08-12"},
+        ]
+        for event in events:
+            event_date = date.fromisoformat(event["date"])
+            event["dday"] = (event_date - today).days
+        return Response({"asOf": today.isoformat(), "events": events})
 
 
 class WatchlistView(APIView):

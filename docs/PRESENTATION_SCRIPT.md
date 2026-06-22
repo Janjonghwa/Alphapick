@@ -1,40 +1,41 @@
-# Presentation Script
+# 발표 대본
 
-## 1. Opening
+## 1. 서비스 소개
 
-AlphaPick solves the problem of choosing a few high-conviction stocks from a large stock universe. The main product is not a simple stock list. It is today's alpha portfolio, built only from stocks that pass risk-type-specific company value, entry timing, and reliability hurdles.
+AlphaPick은 국내 주식 데이터를 기반으로 회사 가치, 진입 타이밍, 신뢰도 점수를 계산하고, 투자 성향별 허들을 통과한 종목만 오늘의 알파 포트폴리오로 제안하는 분석 서비스입니다.
 
-## 2. Demo Flow
+이 서비스는 실제 매매를 대신하는 도구가 아니라, 사용자가 종목 추천 근거를 빠르게 이해하도록 돕는 교육용 분석 도구입니다.
 
-1. Run the backend and frontend.
-2. Open the home page.
-3. Explain the portfolio policy:
-   - neutral hurdle: company 70, timing 70, reliability 70
-   - aggressive/stable hurdles
-   - cash allocation for weak markets
-   - sector cap and redistribution
-   - daily rebalance
-   - eligibility-score-proportional stock weights
-4. Click a portfolio item such as SK Hynix, Samsung Electronics, or KB Financial.
-5. Show the stock report:
-   - headline
-   - timing cards
-   - price chart
-   - total score
-   - score cards
-   - technical and financial indicators
-   - news/disclosures
-6. Move to stock search and show that watch candidates exist below the threshold.
-7. Move to backtest and compare the MVP portfolio with KOSPI.
+## 2. 문제 정의
 
-## 3. Key Differentiation
+개인 투자자는 종목을 고를 때 다음 문제를 자주 겪습니다.
 
-- Recommendations are portfolio-first, not list-first.
-- Each recommendation has an explainable score report.
-- The risk-type hurdle policy prevents weak candidates from entering the main portfolio.
-- Cash allocation and Sector Cap make the recommendation behave like a portfolio, not a leaderboard.
-- Fixtures make evaluation repeatable without external API risk.
+- 종목 추천의 근거가 불투명하다.
+- 좋은 회사와 좋은 매수 타이밍을 동시에 판단하기 어렵다.
+- 포트폴리오 비중이 감정적으로 결정된다.
+- 종목별 리스크와 데이터 신뢰도를 한 화면에서 확인하기 어렵다.
 
-## 4. Closing
+AlphaPick은 이 문제를 점수화, 허들 필터링, 비중 계산, 상세 리포트로 해결합니다.
 
-This MVP proves the full flow from data ingestion to scoring, portfolio construction, score report explanation, and backtest validation. The next step would be replacing seed data with live FinanceDataReader, pykrx, OpenDART, and news APIs.
+## 3. 시연 순서
+
+1. 기본 대시보드 홈을 연다.
+2. 상단 시장 지표 스트립과 편입 종목 TOP 15를 설명한다.
+3. 오늘의 포트폴리오 메뉴로 이동한다.
+4. 편입 종목 전체 테이블에서 종목별 점수, 추천 비중, 핵심 추천 사유를 보여준다.
+5. 투자 성향을 중립형, 공격형, 안정형으로 바꾸며 편입 결과가 달라지는 점을 설명한다.
+6. 특정 종목의 리포트를 연다.
+7. 가격 차트, 점수 카드, 기술/재무 지표, 뉴스/공시, AI 코멘트를 순서대로 설명한다.
+8. 종목 검색과 커뮤니티 화면을 간단히 보여준다.
+
+## 4. 핵심 구현 포인트
+
+- Django REST API가 포트폴리오와 종목 리포트 데이터를 제공한다.
+- Vue 3 화면은 기본 대시보드, 포트폴리오 전체, 종목 검색, 종목 리포트로 구성된다.
+- 성향별 허들은 회사 점수, 타이밍 점수, 신뢰도 점수를 각각 다르게 적용한다.
+- 추천 비중은 점수와 리스크 정책을 반영해 계산한다.
+- 섹터 쏠림이 발생하면 일부 비중을 현금으로 전환한다.
+
+## 5. 마무리
+
+AlphaPick은 추천 결과만 보여주는 서비스가 아니라, 왜 이 종목이 편입되었는지 설명하는 서비스입니다. 사용자는 기본 대시보드에서 전체 상태를 보고, 포트폴리오 전체 페이지에서 편입 종목을 확인하며, 상세 리포트에서 추천 근거를 검증할 수 있습니다.

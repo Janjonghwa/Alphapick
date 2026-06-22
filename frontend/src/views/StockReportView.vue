@@ -7,7 +7,7 @@
       <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div class="flex flex-wrap items-center gap-2">
-            <h1 class="text-3xl font-black text-slate-950">{{ report.stock.name }}</h1>
+            <h1 class="text-3xl font-extrabold text-slate-950">{{ report.stock.name }}</h1>
             <span class="badge bg-slate-100 text-slate-600">{{ report.stock.ticker }}</span>
             <span class="badge bg-blue-50 text-blue-700">{{ report.stock.sector }}</span>
             <span class="badge bg-emerald-50 text-emerald-700">{{ report.stock.primary_theme }}</span>
@@ -24,7 +24,7 @@
         <div class="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
           <RouterLink
             :to="{ name: 'stock-community', params: { ticker: report.stock.ticker } }"
-            class="inline-flex min-h-14 flex-1 items-center justify-center gap-3 rounded-lg bg-emerald-600 px-6 text-lg font-black text-white shadow-lg shadow-emerald-900/15 transition hover:-translate-y-0.5 hover:bg-emerald-700 md:flex-none"
+            class="inline-flex min-h-14 flex-1 items-center justify-center gap-3 rounded-lg bg-emerald-600 px-6 text-lg font-extrabold text-white shadow-lg shadow-emerald-900/15 transition hover:-translate-y-0.5 hover:bg-emerald-700 md:flex-none"
           >
             <MessageCircle :size="24" />
             토론방
@@ -38,22 +38,22 @@
       </p>
 
       <section class="rounded-lg border border-slate-800 bg-slate-300 p-7 text-center text-slate-950">
-        <h2 class="text-4xl font-black leading-tight md:text-5xl">{{ report.score.headline }}</h2>
-        <p class="mt-4 text-xl font-black text-slate-900">{{ report.score.key_reason }}</p>
-        <p v-if="summaryMetricText" class="mt-4 text-lg font-black text-slate-700">{{ summaryMetricText }}</p>
+        <h2 class="text-4xl font-extrabold leading-tight md:text-5xl">{{ report.score.headline }}</h2>
+        <p class="mt-4 text-xl font-extrabold text-slate-900">{{ report.score.key_reason }}</p>
+        <p v-if="summaryMetricText" class="mt-4 text-lg font-extrabold text-slate-700">{{ summaryMetricText }}</p>
       </section>
 
       <div class="mt-6 grid gap-4 md:grid-cols-4">
         <div v-for="card in report.score.timing_cards" :key="cardTitle(card)" class="panel p-4">
-          <p class="text-sm font-black text-slate-500">{{ cardTitle(card) }}</p>
-          <p class="mt-2 text-3xl font-black text-slate-950">{{ scoreText(card) }}</p>
+          <p class="text-sm font-extrabold text-slate-500">{{ cardTitle(card) }}</p>
+          <p class="mt-2 text-3xl font-extrabold text-slate-950">{{ scoreText(card) }}</p>
           <p v-if="cardDescription(card)" class="mt-2 text-sm leading-6 text-slate-500">{{ cardDescription(card) }}</p>
         </div>
       </div>
 
       <div class="mt-6 panel p-5">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 class="text-2xl font-black text-slate-950">{{ report.stock.name }} 가격 차트</h2>
+          <h2 class="text-2xl font-extrabold text-slate-950">{{ report.stock.name }} 가격 차트</h2>
           <div class="flex flex-wrap gap-3 text-sm font-bold text-slate-500">
             <span>Close</span>
             <span class="text-blue-500">EMA20</span>
@@ -83,35 +83,35 @@
       <div class="mt-6 grid gap-6 lg:grid-cols-[360px_1fr]">
         <aside class="space-y-4">
           <RouterLink :to="detailRoute('total', 0)" class="panel block p-5 transition hover:-translate-y-0.5 hover:shadow-soft">
-            <p class="text-sm font-black text-slate-500">최종 종합 점수</p>
-            <p class="mt-3 text-6xl font-black text-rose-500">{{ report.score.total_score }}</p>
-            <p class="text-xl font-black text-slate-700">점</p>
-            <p class="mt-3 inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-black text-amber-700">{{ report.score.verdict }}</p>
-            <p class="mt-3 text-xs font-black text-emerald-600">종합 점수 계산 상세 보기 →</p>
+            <p class="text-sm font-extrabold text-slate-500">최종 종합 점수</p>
+            <p class="mt-3 text-6xl font-extrabold text-rose-500">{{ report.score.total_score }}</p>
+            <p class="text-xl font-extrabold text-slate-700">점</p>
+            <p class="mt-3 inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-extrabold text-amber-700">{{ report.score.verdict }}</p>
+            <p class="mt-3 text-xs font-extrabold text-emerald-600">종합 점수 계산 상세 보기 →</p>
           </RouterLink>
 
           <div class="panel p-5">
             <div class="flex items-start justify-between gap-3">
               <div>
-                <p class="text-sm font-black text-slate-500">회사 가치 × 진입 타이밍</p>
+                <p class="text-sm font-extrabold text-slate-500">회사 가치 × 진입 타이밍</p>
                 <p class="mt-1 text-xs font-bold leading-5 text-slate-500">회사 가치와 진입 타이밍이 모두 70점 이상일 때 포트폴리오 후보입니다.</p>
               </div>
-              <span class="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-500">70점 기준</span>
+              <span class="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-xs font-extrabold text-slate-500">70점 기준</span>
             </div>
 
             <div class="mt-4 rounded-lg border border-slate-200 bg-white p-3">
-              <div class="mb-2 text-center text-xs font-black text-slate-500">진입 타이밍 높음 ↑</div>
+              <div class="mb-2 text-center text-xs font-extrabold text-slate-500">진입 타이밍 높음 ↑</div>
               <div class="relative aspect-square overflow-hidden rounded-md border border-slate-300">
-                <div class="absolute left-0 top-0 flex items-center justify-center bg-yellow-300 text-center text-xs font-black leading-5 text-yellow-950" :style="quadrantStyle('timingOnly')">
+                <div class="absolute left-0 top-0 flex items-center justify-center bg-yellow-300 text-center text-xs font-extrabold leading-5 text-yellow-950" :style="quadrantStyle('timingOnly')">
                   타이밍 우선<br />회사 가치 필요
                 </div>
-                <div class="absolute flex items-center justify-center bg-green-400 text-center text-xs font-black leading-5 text-green-950" :style="quadrantStyle('pass')">
+                <div class="absolute flex items-center justify-center bg-green-400 text-center text-xs font-extrabold leading-5 text-green-950" :style="quadrantStyle('pass')">
                   포트폴리오<br />후보
                 </div>
-                <div class="absolute left-0 flex items-center justify-center bg-red-300 text-center text-xs font-black leading-5 text-red-950" :style="quadrantStyle('watch')">
+                <div class="absolute left-0 flex items-center justify-center bg-red-300 text-center text-xs font-extrabold leading-5 text-red-950" :style="quadrantStyle('watch')">
                   보수적<br />관찰
                 </div>
-                <div class="absolute flex items-center justify-center bg-sky-300 text-center text-xs font-black leading-5 text-sky-950" :style="quadrantStyle('companyOnly')">
+                <div class="absolute flex items-center justify-center bg-sky-300 text-center text-xs font-extrabold leading-5 text-sky-950" :style="quadrantStyle('companyOnly')">
                   좋은 회사<br />타이밍 대기
                 </div>
                 <div class="absolute top-0 h-full w-0.5 bg-slate-700/70" :style="{ left: `${componentThreshold}%` }"></div>
@@ -122,7 +122,7 @@
                   aria-label="현재 점수 위치"
                 ></div>
               </div>
-              <div class="mt-2 grid grid-cols-3 items-center text-xs font-black text-slate-500">
+              <div class="mt-2 grid grid-cols-3 items-center text-xs font-extrabold text-slate-500">
                 <span>회사 가치 낮음</span>
                 <span class="text-center">회사 가치 점수 →</span>
                 <span class="text-right">회사 가치 높음</span>
@@ -161,24 +161,24 @@
 
         <main class="space-y-6">
           <section class="panel p-5">
-            <h2 class="border-l-4 border-emerald-500 pl-3 text-2xl font-black text-slate-950">데이터 정제 및 계산 근거</h2>
+            <h2 class="border-l-4 border-emerald-500 pl-3 text-2xl font-extrabold text-slate-950">데이터 정제 및 계산 근거</h2>
             <div class="mt-5 grid gap-3 md:grid-cols-2">
               <div class="rounded-lg bg-slate-50 p-4">
-                <p class="text-sm font-black text-slate-500">Signal</p>
-                <p class="mt-1 font-black text-slate-900">{{ report.score.signal }}</p>
+                <p class="text-sm font-extrabold text-slate-500">Signal</p>
+                <p class="mt-1 font-extrabold text-slate-900">{{ report.score.signal }}</p>
               </div>
               <div class="rounded-lg bg-slate-50 p-4">
-                <p class="text-sm font-black text-slate-500">Consensus / Confidence</p>
-                <p class="mt-1 font-black text-slate-900">{{ report.score.consensus || "-" }} · {{ report.score.confidence || "-" }}</p>
+                <p class="text-sm font-extrabold text-slate-500">Consensus / Confidence</p>
+                <p class="mt-1 font-extrabold text-slate-900">{{ report.score.consensus || "-" }} · {{ report.score.confidence || "-" }}</p>
               </div>
               <div class="rounded-lg bg-slate-50 p-4">
-                <p class="text-sm font-black text-slate-500">Area Scores</p>
+                <p class="text-sm font-extrabold text-slate-500">Area Scores</p>
                 <p class="mt-1 font-bold text-slate-700">
                   {{ areaScoreText }}
                 </p>
               </div>
               <div class="rounded-lg bg-slate-50 p-4">
-                <p class="text-sm font-black text-slate-500">RS / RSI / 거래량</p>
+                <p class="text-sm font-extrabold text-slate-500">RS / RSI / 거래량</p>
                 <p class="mt-1 font-bold text-slate-700">
                   RS {{ report.score.rs_rank ?? "-" }} · RSI {{ report.score.rsi ?? "-" }} · 거래량 {{ report.score.volume_ratio }}x
                 </p>
@@ -194,7 +194,7 @@
           <section class="panel p-5">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 class="border-l-4 border-emerald-500 pl-3 text-2xl font-black text-slate-950">AI 3줄 코멘트</h2>
+                <h2 class="border-l-4 border-emerald-500 pl-3 text-2xl font-extrabold text-slate-950">AI 3줄 코멘트</h2>
                 <p class="mt-2 text-sm font-bold text-slate-500">기업 점수, 타이밍 점수, 리스크 할인 요인을 바탕으로 긍정 요인, 주의 요인, 종합 의견을 요약합니다.</p>
               </div>
               <button class="btn-primary" type="button" :disabled="aiLoading" @click="loadAiComment">
@@ -207,15 +207,15 @@
             </div>
             <div v-else-if="aiComment" class="mt-5 grid gap-3">
               <div class="rounded-lg bg-emerald-50 p-4">
-                <p class="text-sm font-black text-emerald-700">긍정 요인</p>
+                <p class="text-sm font-extrabold text-emerald-700">긍정 요인</p>
                 <p class="mt-1 font-bold leading-7 text-slate-800">{{ aiComment.positive }}</p>
               </div>
               <div class="rounded-lg bg-amber-50 p-4">
-                <p class="text-sm font-black text-amber-700">주의 요인</p>
+                <p class="text-sm font-extrabold text-amber-700">주의 요인</p>
                 <p class="mt-1 font-bold leading-7 text-slate-800">{{ aiComment.negative }}</p>
               </div>
               <div class="rounded-lg bg-slate-100 p-4">
-                <p class="text-sm font-black text-slate-600">종합 의견</p>
+                <p class="text-sm font-extrabold text-slate-600">종합 의견</p>
                 <p class="mt-1 font-bold leading-7 text-slate-800">{{ aiComment.conclusion }}</p>
                 <p class="mt-2 text-xs font-bold text-slate-400">
                   {{ aiComment.provider }} · {{ aiComment.cached ? "캐시 사용" : "새로 생성" }}
@@ -227,7 +227,7 @@
           <section>
             <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h2 class="border-l-4 border-emerald-500 pl-3 text-2xl font-black text-slate-950">스코어 카드</h2>
+                <h2 class="border-l-4 border-emerald-500 pl-3 text-2xl font-extrabold text-slate-950">스코어 카드</h2>
                 <p class="mt-2 text-sm font-bold text-slate-500">각 카드를 클릭하면 계산 방식과 최종 점수 반영 방식을 확인할 수 있습니다.</p>
               </div>
             </div>
@@ -240,19 +240,19 @@
               >
                 <article class="grid gap-4 md:grid-cols-[1fr_160px] md:items-center">
                   <div class="flex items-start gap-3">
-                    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-500 text-sm font-black text-white">
+                    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-500 text-sm font-extrabold text-white">
                       {{ card.code || "점수" }}
                     </span>
                     <div class="min-w-0">
-                      <h3 class="text-lg font-black text-slate-900">{{ card.title }}</h3>
+                      <h3 class="text-lg font-extrabold text-slate-900">{{ card.title }}</h3>
                       <p v-if="card.rawValue || card.description" class="mt-1 text-sm leading-6 text-slate-500">{{ card.rawValue || card.description }}</p>
                       <p v-if="card.reason" class="mt-2 text-sm leading-6 text-slate-600">{{ card.reason }}</p>
-                      <p class="mt-2 text-xs font-black text-emerald-600">계산 상세 보기 →</p>
+                      <p class="mt-2 text-xs font-extrabold text-emerald-600">계산 상세 보기 →</p>
                     </div>
                   </div>
                   <div class="rounded-lg bg-slate-50 p-4 text-right">
-                    <p class="text-xs font-black text-slate-400">레이어 점수</p>
-                    <p class="mt-1 text-4xl font-black tabular-nums" :class="scoreColor(card.score)">{{ formatScore(card.score) }}</p>
+                    <p class="text-xs font-extrabold text-slate-400">레이어 점수</p>
+                    <p class="mt-1 text-4xl font-extrabold tabular-nums" :class="scoreColor(card.score)">{{ formatScore(card.score) }}</p>
                     <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
                       <div class="h-full rounded-full" :class="scoreBar(card.score)" :style="{ width: `${card.score}%` }"></div>
                     </div>
@@ -268,27 +268,27 @@
           <section class="panel p-5">
             <div class="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 class="border-l-4 border-emerald-500 pl-3 text-2xl font-black text-slate-950">공시·뉴스</h2>
+                <h2 class="border-l-4 border-emerald-500 pl-3 text-2xl font-extrabold text-slate-950">공시·뉴스</h2>
                 <p class="mt-2 text-sm font-bold text-slate-500">뉴스와 공시 제목을 키워드 기반으로 긍정/중립/부정 분류합니다.</p>
               </div>
               <div class="rounded-lg px-4 py-3 text-right" :class="sentimentSummary.className">
-                <p class="text-xs font-black">종합 감성</p>
-                <p class="mt-1 text-lg font-black">{{ sentimentSummary.label }} 우위</p>
+                <p class="text-xs font-extrabold">종합 감성</p>
+                <p class="mt-1 text-lg font-extrabold">{{ sentimentSummary.label }} 우위</p>
               </div>
             </div>
 
             <div class="mt-5 grid gap-3 md:grid-cols-3">
               <div class="rounded-lg bg-emerald-50 p-4">
-                <p class="text-sm font-black text-emerald-700">긍정</p>
-                <p class="mt-1 text-3xl font-black text-emerald-700">{{ sentimentSummary.positive }}건</p>
+                <p class="text-sm font-extrabold text-emerald-700">긍정</p>
+                <p class="mt-1 text-3xl font-extrabold text-emerald-700">{{ sentimentSummary.positive }}건</p>
               </div>
               <div class="rounded-lg bg-slate-100 p-4">
-                <p class="text-sm font-black text-slate-600">중립</p>
-                <p class="mt-1 text-3xl font-black text-slate-700">{{ sentimentSummary.neutral }}건</p>
+                <p class="text-sm font-extrabold text-slate-600">중립</p>
+                <p class="mt-1 text-3xl font-extrabold text-slate-700">{{ sentimentSummary.neutral }}건</p>
               </div>
               <div class="rounded-lg bg-rose-50 p-4">
-                <p class="text-sm font-black text-rose-700">부정</p>
-                <p class="mt-1 text-3xl font-black text-rose-700">{{ sentimentSummary.negative }}건</p>
+                <p class="text-sm font-extrabold text-rose-700">부정</p>
+                <p class="mt-1 text-3xl font-extrabold text-rose-700">{{ sentimentSummary.negative }}건</p>
               </div>
             </div>
 
@@ -305,13 +305,13 @@
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
-                      <span class="rounded bg-slate-100 px-2 py-1 text-xs font-black text-slate-600">{{ item.type }}</span>
+                      <span class="rounded bg-slate-100 px-2 py-1 text-xs font-extrabold text-slate-600">{{ item.type }}</span>
                       <span class="text-xs font-bold text-slate-400">{{ item.date }}</span>
                     </div>
-                    <p class="mt-2 font-black leading-7 text-slate-900">{{ item.title }}</p>
+                    <p class="mt-2 font-extrabold leading-7 text-slate-900">{{ item.title }}</p>
                     <p class="mt-1 text-sm font-bold leading-6 text-slate-500">{{ item.reason }}</p>
                   </div>
-                  <span class="shrink-0 rounded-full px-3 py-1 text-sm font-black" :class="sentimentBadgeClass(item.sentiment)">
+                  <span class="shrink-0 rounded-full px-3 py-1 text-sm font-extrabold" :class="sentimentBadgeClass(item.sentiment)">
                     {{ sentimentLabel(item.sentiment) }}
                   </span>
                 </div>
@@ -673,7 +673,7 @@ const IndicatorSection = defineComponent({
   setup(sectionProps) {
     return () =>
       h("section", { class: "panel p-5" }, [
-        h("h2", { class: "border-l-4 border-emerald-500 pl-3 text-2xl font-black text-slate-950" }, sectionProps.title),
+        h("h2", { class: "border-l-4 border-emerald-500 pl-3 text-2xl font-extrabold text-slate-950" }, sectionProps.title),
         h(
           "div",
           { class: "mt-5 space-y-3" },
@@ -690,12 +690,12 @@ const IndicatorSection = defineComponent({
               class: "flex items-center justify-between gap-4 rounded-lg border border-slate-100 p-4 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50/50",
             }, () => [
               h("div", { class: "min-w-0" }, [
-                h("p", { class: "font-black text-slate-800" }, item.name || item.label || item.title || "지표"),
+                h("p", { class: "font-extrabold text-slate-800" }, item.name || item.label || item.title || "지표"),
                 h("p", { class: "text-sm text-slate-500" }, item.description || item.reason || ""),
-                h("p", { class: "mt-1 text-xs font-black text-emerald-600" }, "계산 상세 보기 →"),
+                h("p", { class: "mt-1 text-xs font-extrabold text-emerald-600" }, "계산 상세 보기 →"),
               ]),
               h("div", { class: "text-right" }, [
-                h("p", { class: "text-lg font-black text-slate-950" }, item.value),
+                h("p", { class: "text-lg font-extrabold text-slate-950" }, item.value),
                 h("p", { class: "text-sm font-bold text-emerald-600" }, item.status),
               ]),
             ]),

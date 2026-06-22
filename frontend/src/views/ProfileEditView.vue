@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell py-8">
     <form class="panel mx-auto max-w-2xl p-6" @submit.prevent="submit">
-      <h1 class="text-3xl font-black text-slate-950">프로필 수정</h1>
+      <h1 class="text-3xl font-extrabold text-slate-950">프로필 수정</h1>
 
       <label class="mt-6 block text-sm font-bold text-slate-700">
         닉네임

@@ -1,7 +1,7 @@
 <template>
   <section class="page-shell flex min-h-[calc(100vh-65px)] items-center justify-center py-8">
     <form class="panel w-full max-w-md p-6" @submit.prevent="submit">
-      <h1 class="text-3xl font-black text-slate-950">로그인</h1>
+      <h1 class="text-3xl font-extrabold text-slate-950">로그인</h1>
 
       <label class="mt-6 block text-sm font-bold text-slate-700">
         아이디

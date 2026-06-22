@@ -1,8 +1,8 @@
 <template>
   <section class="page-shell py-8">
     <div class="mb-6">
-      <p class="text-sm font-black uppercase tracking-[0.18em] text-emerald-600">Stock Universe</p>
-      <h1 class="mt-2 text-4xl font-black text-slate-950">종목 검색과 스코어 필터</h1>
+      <p class="text-sm font-bold uppercase tracking-[0.18em] text-emerald-600">Stock Universe</p>
+      <h1 class="mt-2 text-4xl font-bold text-slate-950">종목 검색과 스코어 필터</h1>
       <p class="mt-3 max-w-3xl leading-7 text-slate-600">
         포트폴리오에는 회사 가치와 진입 타이밍이 모두 70점 이상인 종목만 편입되지만, 전체 종목의 리포트와 관찰 후보도 함께 확인할 수 있습니다.
       </p>
@@ -40,7 +40,7 @@
           <div class="flex items-start justify-between gap-4">
             <div>
               <div class="flex flex-wrap items-center gap-2">
-                <h2 class="text-2xl font-black text-slate-950">{{ stock.name }}</h2>
+                <h2 class="text-2xl font-bold text-slate-950">{{ stock.name }}</h2>
                 <span class="badge bg-slate-100 text-slate-600">{{ stock.ticker }}</span>
                 <span class="badge bg-emerald-50 text-emerald-700">{{ stock.sector }}</span>
                 <span class="badge bg-blue-50 text-blue-700">{{ stock.primary_theme }}</span>
@@ -55,7 +55,7 @@
             </div>
             <div class="text-right">
               <p class="text-sm font-bold text-slate-500">점수</p>
-              <p class="text-3xl font-black" :class="stock.latest_score >= 70 ? 'text-rose-500' : 'text-slate-700'">
+              <p class="text-3xl font-bold" :class="stock.latest_score >= 70 ? 'text-rose-500' : 'text-slate-700'">
                 {{ stock.latest_score }}
               </p>
             </div>

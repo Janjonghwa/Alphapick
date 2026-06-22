@@ -1,29 +1,92 @@
-# AlphaPick MVP
+# AlphaPick
 
-AlphaPick is a Django/DRF + Vue 3 MVP for a score-based stock portfolio recommendation service.
+AlphaPick은 국내 주식 데이터를 기반으로 종목 점수와 포트폴리오 편입 결과를 보여주는 주식 분석 서비스입니다. Django REST API가 종목, 포트폴리오, 커뮤니티 데이터를 제공하고, Vue 3 프론트엔드가 금융 대시보드 형태로 화면을 구성합니다.
 
-The app scores each stock report first, then builds today's alpha portfolio from stocks whose `total_score` is at least 70. Portfolio weights are calculated in proportion to the score above 70, and the portfolio is designed as a daily rebalance recommendation.
+현재 프론트엔드는 기본 대시보드, 오늘의 포트폴리오 전체, 종목 검색, 종목 리포트, 커뮤니티 화면을 중심으로 구성되어 있습니다. 백테스트 화면은 사용자 화면에서 제거되어 있으며, 관련 API는 백엔드에만 남아 있습니다.
 
-## Core Features
+## 핵심 기능
 
-- Today's alpha portfolio: only stocks with `total_score >= 70`, `company_score >= 60`, `timing_score >= 60`, and `reliability_score >= 70`
-- Score-above-threshold proportional portfolio weights
-- Stock score report with headline, timing cards, chart data, CAN SLIM, score cards, financial/technical indicators, news, and disclosures
-- Watch candidates when a stock misses the 70-point portfolio threshold
-- MVP backtest comparing the recommended portfolio with KOSPI
-- Local fixtures via `seed_alphapick`, so the project works without live stock APIs
-- Risk-type portfolio variants and a cached AI 3-line stock comment endpoint for the final PRD flow
+- 기본 대시보드: 시장 지표 스트립과 편입 종목 TOP 15 표시
+- 오늘의 포트폴리오: 편입 종목 전체, 점수, 추천 비중, 핵심 추천 사유 확인
+- 종목 검색: 전체 종목 검색, 점수 필터, 리포트 이동
+- 종목 리포트: 가격 차트, 점수 카드, 기술/재무 지표, 뉴스/공시, AI 코멘트 제공
+- 커뮤니티: 종목별 게시글, 댓글, 좋아요, 팔로우 기능
+- 사용자 기능: 로그인, 회원가입, 마이페이지, 관심 종목 확장 구조
+- 시장 지표: VIX, S&P500, 나스닥, KOSPI, 환율, DXY, 금리, 원자재, BTC 등 요약 표시
 
-## Planning and Presentation Docs
+## 화면 구조
 
-- `docs/PRD.md`
-- `docs/WBS_GANTT.md`
-- `docs/UML.md`
-- `docs/WIREFRAME.md`
-- `docs/PRESENTATION_SCRIPT.md`
-- `docs/QA.md`
+| 화면 | 경로 | 설명 |
+|---|---|---|
+| 기본 대시보드 | `/` | 시장 지표와 편입 종목 TOP 15 |
+| 오늘의 포트폴리오 | `/portfolio` | 편입 종목 전체 테이블 |
+| 종목 검색 | `/stocks` | 종목 검색과 점수 필터 |
+| 종목 리포트 | `/stocks/:ticker` | 차트, 점수, 지표, 뉴스/공시, AI 코멘트 |
+| 종목 커뮤니티 | `/stocks/:ticker/community` | 특정 종목 의견 |
+| 커뮤니티 | `/community` | 전체 커뮤니티 |
+| 사용자 기능 | `/login`, `/register`, `/mypage`, `/profile/edit` | 인증과 사용자 정보 |
 
-## Backend
+## 기술 스택
+
+### 프론트엔드
+
+- Vue 3
+- Vite
+- Vue Router
+- Pinia
+- Axios
+- Tailwind CSS
+- PostCSS, Autoprefixer
+- lucide-vue 아이콘
+- SUIT 웹폰트
+
+### 백엔드
+
+- Python
+- Django 4.2
+- Django REST Framework
+- Simple JWT
+- django-cors-headers
+- SQLite 기본 DB, `DATABASE_URL` 설정 시 PostgreSQL 등 외부 DB 지원
+- psycopg
+- pandas, numpy
+- pykrx
+- requests
+- Pillow
+
+### 주요 도구와 환경
+
+- Node.js / npm
+- PowerShell 기준 실행 명령
+- Django 관리 명령어 `seed_alphapick`
+- Vite 개발 서버: `http://127.0.0.1:5173`
+- Django API 서버: `http://127.0.0.1:8000/api`
+
+## 프로젝트 구조
+
+```txt
+Alphapick/
+├─ backend/
+│  ├─ accounts/        사용자 모델과 인증
+│  ├─ community/       게시글, 댓글, 좋아요, 팔로우
+│  ├─ config/          Django 설정과 URL
+│  ├─ stocks/          종목, 점수, 포트폴리오, 시장 지표 API
+│  ├─ db.sqlite3       로컬 SQLite 데이터베이스
+│  └─ manage.py
+├─ frontend/
+│  ├─ public/          favicon과 앱 로고
+│  ├─ src/
+│  │  ├─ api/          Axios 클라이언트
+│  │  ├─ assets/       스타일과 폰트
+│  │  ├─ components/   레이아웃과 공통 컴포넌트
+│  │  ├─ router/       Vue Router
+│  │  ├─ stores/       Pinia 스토어
+│  │  └─ views/        화면 컴포넌트
+│  └─ package.json
+└─ docs/               요구사항, 설계, QA, 발표 문서
+```
+
+## 백엔드 실행
 
 ```powershell
 cd backend
@@ -34,38 +97,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe manage.py runserver
 ```
 
-To replace the fixture data with real KOSPI daily prices, use the pykrx seed command:
-
-```powershell
-cd backend
-.\.venv\Scripts\python.exe manage.py seed_pykrx --market KOSPI --days 365 --flush
-```
-
-Useful test options:
-
-```powershell
-.\.venv\Scripts\python.exe manage.py seed_pykrx --tickers 005930,000660 --days 365 --sleep 0 --flush
-.\.venv\Scripts\python.exe manage.py seed_pykrx --market KOSPI --days 365 --limit 30 --sleep 0.2 --flush
-```
-
-`seed_pykrx` first tries pykrx's market ticker list. If that endpoint returns empty, it falls back to the KRX KIND listed-company table for the KOSPI universe and still uses pykrx for each stock's OHLCV price history. The current implementation scores price, momentum, breakout, liquidity, drawdown, z-score and market breadth layers; pykrx fundamental endpoints are treated as optional because they can be unavailable depending on the local KRX endpoint response.
-
-Main APIs:
-
-```txt
-GET /api/portfolio/today/
-GET /api/portfolio/today/?risk_type=aggressive
-GET /api/portfolio/history/
-GET /api/portfolio/backtest/?benchmark=KOSPI
-GET /api/stocks/
-GET /api/stocks/{ticker}/report/
-GET /api/stocks/{ticker}/prices/
-POST /api/stocks/{ticker}/ai-comment/
-POST /api/watchlist/{ticker}/
-DELETE /api/watchlist/{ticker}/
-```
-
-## Frontend
+## 프론트엔드 실행
 
 ```powershell
 cd frontend
@@ -73,9 +105,51 @@ npm install
 npm run dev
 ```
 
-Set `VITE_API_BASE_URL` in `frontend/.env` if the backend is not running at `http://localhost:8000/api`.
+프론트엔드는 기본적으로 `http://localhost:8000/api`를 백엔드 API 주소로 사용합니다. 다른 주소를 사용할 경우 `frontend/.env`에 다음 값을 설정합니다.
 
-## Verification
+```txt
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
+```
+
+## 주요 API
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/portfolio/today/` | 오늘의 포트폴리오 조회 |
+| GET | `/api/portfolio/today/?risk_type=aggressive` | 공격형 포트폴리오 조회 |
+| GET | `/api/portfolio/today/?risk_type=stable` | 안정형 포트폴리오 조회 |
+| GET | `/api/portfolio/history/` | 포트폴리오 이력 조회 |
+| GET | `/api/portfolio/backtest/` | 백테스트 요약 API |
+| GET | `/api/market/macro/` | 시장 지표 요약 |
+| GET | `/api/market/events/` | 매크로 이벤트 |
+| GET | `/api/stocks/` | 종목 목록 |
+| GET | `/api/stocks/{ticker}/report/` | 종목 리포트 |
+| GET | `/api/stocks/{ticker}/prices/` | 종목 가격 시계열 |
+| POST | `/api/stocks/{ticker}/ai-comment/` | AI 코멘트 생성 또는 캐시 조회 |
+| GET | `/api/watchlist/` | 내 관심 종목 |
+| POST | `/api/watchlist/{ticker}/` | 관심 종목 추가 |
+| DELETE | `/api/watchlist/{ticker}/` | 관심 종목 삭제 |
+| GET/POST | `/api/community/posts/` | 커뮤니티 게시글 목록과 작성 |
+| GET | `/api/community/users/` | 커뮤니티 사용자 목록 |
+| POST | `/api/community/users/{user_id}/follow/` | 팔로우 토글 |
+| DELETE | `/api/community/comments/{comment_id}/` | 댓글 삭제 |
+
+## 문서 정리
+
+| 문서 | 내용 |
+|---|---|
+| [docs/README.md](docs/README.md) | 문서 인덱스와 아키텍처 요약 |
+| [docs/PRD.md](docs/PRD.md) | 제품 요구사항 정의서 |
+| [docs/recommendation_requirements.md](docs/recommendation_requirements.md) | 추천 포트폴리오 정책 명세 |
+| [docs/WIREFRAME.md](docs/WIREFRAME.md) | 화면 와이어프레임 |
+| [docs/UML.md](docs/UML.md) | 유스케이스, ERD, 시퀀스 다이어그램 |
+| [docs/WBS_GANTT.md](docs/WBS_GANTT.md) | 작업 분해와 일정 |
+| [docs/QA.md](docs/QA.md) | 품질 검증 체크리스트 |
+| [docs/ARCHITECTURE_CLEANUP.md](docs/ARCHITECTURE_CLEANUP.md) | 아키텍처 정리 내역 |
+| [docs/PRESENTATION_SCRIPT.md](docs/PRESENTATION_SCRIPT.md) | 발표 대본 |
+| [docs/AlphaPick_Final_PRD.pdf](docs/AlphaPick_Final_PRD.pdf) | 최종 PRD PDF |
+
+## 검증
 
 ```powershell
 cd backend
@@ -86,6 +160,14 @@ cd ..\frontend
 npm run build
 ```
 
-## Investment Notice
+## 현재 UI 메모
 
-This service is an educational analysis tool for the project. It is not financial advice, does not guarantee returns, and does not include real buy/sell order execution.
+- 좌측 사이드바의 AlphaPick 로고를 누르면 기본 대시보드(`/`)로 이동합니다.
+- `오늘의 포트폴리오` 메뉴는 편입 종목 전체 화면(`/portfolio`)으로 이동합니다.
+- `백테스트` 메뉴와 화면은 사용자 화면에서 제거되었습니다.
+- 웹사이트 favicon과 사이드바 로고는 `frontend/public/alphapick-icon.png`를 사용합니다.
+- 점수 산정 기준 설명은 추후 기본 대시보드 제목 옆 `(i)` 버튼에서 제공할 예정입니다.
+
+## 투자 유의 문구
+
+AlphaPick은 교육용 분석 도구입니다. 투자 자문이 아니며, 수익을 보장하지 않고, 실제 매매 주문 기능을 제공하지 않습니다.

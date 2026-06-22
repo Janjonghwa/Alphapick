@@ -1,411 +1,108 @@
-﻿# AlphaPick Product Requirements Document
+# AlphaPick 제품 요구사항 정의서
 
-> Version v1.0 | 작성일 2026년 5월 22일 | 프로젝트 SSAFY 관통 프로젝트 금융 | 기술 스택 Django DRF + Vue 3 + Pinia + Chart.js + AI Comment API
+## 1. 제품 개요
 
-## 1. 문제 정의
+AlphaPick은 국내 주식 데이터를 기반으로 종목별 회사 점수, 타이밍 점수, 신뢰도 점수를 계산하고, 투자 성향별 허들을 통과한 종목으로 오늘의 알파 포트폴리오를 구성하는 분석 서비스입니다.
 
-국내 개인 투자자는 종목을 고를 때 가격 차트, 수급, 재무제표, 뉴스, 공시를 여러 화면에서 따로 확인해야 한다. 정보는 많지만 “오늘 살 만한 종목이 무엇인지”와 “왜 그 종목이 추천되는지”를 한 번에 설명해주는 도구는 부족하다.
+서비스의 핵심은 “추천 결과”만 보여주는 것이 아니라, 종목이 왜 편입되었는지 점수와 지표로 설명하는 것입니다.
 
-AlphaPick은 감이나 루머에 의존하는 종목 선택을 줄이고, 정량 점수와 설명 가능한 리포트를 기반으로 투자 후보를 압축하는 것을 목표로 한다.
+## 2. 목표 사용자
 
-| 페인포인트 | 설명 | 심각도 |
+- 국내 주식 종목을 빠르게 선별하고 싶은 개인 투자자
+- 추천 종목의 근거를 확인하고 싶은 사용자
+- 회사 가치와 진입 타이밍을 함께 보고 싶은 사용자
+- 포트폴리오 비중을 감정이 아니라 규칙 기반으로 정하고 싶은 사용자
+
+## 3. 핵심 가치
+
+- 회사 가치, 진입 타이밍, 신뢰도를 분리해 판단한다.
+- 투자 성향별로 서로 다른 편입 허들을 적용한다.
+- 추천 비중과 현금 비중을 함께 보여준다.
+- 종목 리포트에서 차트, 지표, 뉴스, AI 코멘트를 제공한다.
+- 기본 대시보드와 편입 종목 전체 화면을 분리해 정보 탐색을 단순화한다.
+
+## 4. 현재 화면 범위
+
+| 화면 | 경로 | 설명 |
 |---|---|---|
-| 정보 파편화 | HTS, DART, 뉴스, 수급 데이터가 분산되어 종합 판단이 어렵다. | 높음 |
-| 해석 장벽 | RSI, PER, ROE 같은 수치를 봐도 매수/관망 판단으로 연결하기 어렵다. | 높음 |
-| 종목 선별 피로 | KOSPI/KOSDAQ의 많은 종목 중 검토 후보를 직접 좁히기 어렵다. | 매우 높음 |
-| 매수 근거 부재 | 커뮤니티, 루머, 주변 추천에 의존해 감정적 매매를 반복한다. | 매우 높음 |
-| 결과 검증 부족 | 추천이 실제로 지수보다 나은지 확인하기 어렵다. | 높음 |
+| 기본 대시보드 | `/` | 시장 지표 스트립, 기준일, 투자 성향 선택, 편입 종목 상위 15개 |
+| 오늘의 포트폴리오 | `/portfolio` | 편입 종목 전체 목록, 점수, 비중, 추천 사유 |
+| 종목 검색 | `/stocks` | 종목 검색 및 리포트 이동 |
+| 종목 리포트 | `/stocks/{ticker}` | 차트, 점수 카드, 기술/재무 지표, 뉴스/공시, AI 코멘트 |
+| 커뮤니티 | `/community` | 종목 의견과 게시글 |
+| 사용자 기능 | `/login`, `/register`, `/mypage` | 인증과 사용자 정보 |
 
-## 2. 제품 개요
+백테스트 화면은 현재 사용자 화면 범위에서 제외되었습니다.
 
-**AlphaPick**은 국내 주식 종목을 기업 점수, 타이밍 점수, 리스크 할인 계수로 점수화하고, 성향별 회사 가치·진입 타이밍·신뢰도 허들을 통과한 종목만 골라 **오늘의 알파 포트폴리오**를 구성하는 AI 기반 주식 분석 서비스다.
+## 5. 포트폴리오 정책
 
-메인 화면은 단순 TOP 10 리스트가 아니라 **추천 포트폴리오**를 보여준다. 사용자는 편입 종목, 종목별 점수, 현금 비중, Sector Cap 조정 결과, 핵심 추천 사유, 주의 사유를 확인할 수 있다. 각 종목을 클릭하면 KB 스타일의 상세 스코어 리포트에서 차트, 지표 카드, 기술/재무 지표, 뉴스/공시, AI 코멘트를 확인한다.
+### 5.1 투자 성향
 
-## 3. 핵심 차별화
+| 성향 | 회사 점수 | 타이밍 점수 | 신뢰도 점수 | 설명 |
+|---|---:|---:|---:|---|
+| 중립형 | 70 | 70 | 70 | 균형 기준 |
+| 공격형 | 65 | 75 | 65 | 주도주 타이밍 중시 |
+| 안정형 | 75 | 65 | 75 | 우량성과 신뢰도 중시 |
 
-| 차별화 요소 | 설명 |
-|---|---|
-| 성향별 추천 후보 포트폴리오 | 공격형/중립형/안정형마다 회사 가치, 진입 타이밍, 신뢰도 허들을 다르게 적용한다. |
-| 현금 포함 자산 배분 | 시장 상태와 편입 후보 수가 약하면 주식 100%를 억지로 채우지 않고 현금 비중을 제안한다. |
-| Sector Cap | 특정 섹터 쏠림을 제한하고, 재분배가 불가능한 초과분은 현금으로 보낸다. |
-| 종목별 스코어 리포트 | 추천 결과의 근거를 차트, 지표 카드, 기술/재무 지표, 뉴스/공시로 설명한다. |
-| AI 3줄 코멘트 | 복잡한 지표를 긍정 요인, 부정 요인, 종합 의견으로 요약한다. |
-| 백테스트 검증 | 추천 포트폴리오가 KOSPI/KOSDAQ 대비 어떤 성과를 냈는지 비교한다. |
-| 투자 성향 확장 | 공격형/중립형/안정형 가중치를 통해 개인화 포트폴리오로 확장 가능하다. |
+### 5.2 편입과 비중
 
-## 4. 목표와 평가 지표
+1. 전체 종목의 최신 점수 스냅샷을 조회한다.
+2. 선택된 투자 성향의 회사, 타이밍, 신뢰도 허들을 적용한다.
+3. 허들을 통과한 종목만 편입 후보가 된다.
+4. 후보 점수와 시장 상태를 반영해 종목 비중과 현금 비중을 계산한다.
+5. 섹터 쏠림이 발생하면 비중을 조정하고, 조정 불가 비중은 현금으로 전환한다.
 
-이번 프로젝트의 핵심 평가는 API 개수나 기능 나열이 아니라 다음 플로우가 안정적으로 동작하는지로 판단한다.
+## 6. 기능 요구사항
 
-```txt
-추천 포트폴리오 생성 → 종목 상세 리포트 조회 → 백테스트 검증
-```
-
-| 목표 | 평가 지표 | 수용 기준 |
-|---|---|---|
-| 추천 포트폴리오 생성 | 성향별 허들 필터링과 현금 포함 비중 계산 | 편입 종목이 성향별 허들을 통과하고 주식+현금 비중 합계가 100% |
-| 설명 가능한 리포트 | 상세 리포트 데이터 완성도 | 차트 1년치, 점수 카드, 기술/재무 지표 제공 |
-| 추천 검증 | 백테스트 동작 | 포트폴리오와 KOSPI/KOSDAQ 수익률 비교 가능 |
-| 재현성 | Fixtures 기반 실행 | 외부 API 없이 seed 데이터로 시연 가능 |
-| 확장성 | AI/개인화 설계 | AI 코멘트와 투자 성향별 가중치 구조 반영 |
-
-## 5. 점수 체계
-
-### 5.1 3레이어 점수 구조
-
-| 레이어 | 산식/역할 | 주요 지표 |
-|---|---:|---|
-| 기업 점수 | 가치/퀄리티 40% + 연간 ROE 30% + EPS 가속도 30% | PER/PBR, ROE, EPS 성장률 |
-| 타이밍 점수 | 주도주/모멘텀 40% + 신고가/피벗 돌파 30% + 스마트머니/기관 수급 30% | RS, 피벗 돌파, 거래량/기관/외국인 |
-| 리스크 할인 | 시장 방향 40% + 평균회귀 Z-Score 30% + 낙폭 위험도 30% | KOSPI/KOSDAQ 방향, 단기 과열, MDD/변동성 |
-
-### 5.2 보조 점수
-
-| 점수 | 설명 |
-|---|---|
-| `company_score` | 좋은 회사인지 판단하는 점수 |
-| `timing_score` | 지금 진입 타이밍이 좋은지 판단하는 점수 |
-| `reliability_score` | 데이터 결측, 최신성, 계산 가능 여부 기반 신뢰도 |
-| `total_score` | 포트폴리오 편입 기준이 되는 최종 점수 |
-
-### 5.3 투자 성향별 가중치
-
-| 성향 | 기업 점수 | 타이밍 점수 |
-|---|---:|---:|
-| 공격형 | 38% | 62% |
-| 중립형 | 45% | 55% |
-| 안정형 | 62% | 38% |
-
-MVP 기본값은 중립형이다. 회원 기능 확장 시 `UserProfile.risk_type`에 따라 점수를 재계산한다.
-
-## 6. 포트폴리오 정책
-
-### 6.1 편입 조건
-
-```txt
-공격형: company_score >= 65, timing_score >= 75, reliability_score >= 65
-중립형: company_score >= 70, timing_score >= 70, reliability_score >= 70
-안정형: company_score >= 75, timing_score >= 65, reliability_score >= 75
-가격/재무/기술 지표 계산 가능
-관리종목, 거래정지, 데이터 결측 과다 종목 제외
-```
-
-### 6.2 비중 산정 및 자산 배분
-
-```txt
-1. 편입 후보 수와 marketDirection 평균으로 기본 현금 비중을 산정한다.
-   - 후보 5개 이상: 공격형 0%, 중립형 0%, 안정형 5%
-   - 후보 3~4개: 공격형 10%, 중립형 15%, 안정형 20%
-   - 후보 1~2개: 공격형 20%, 중립형 30%, 안정형 35%
-   - 후보 0개: 모든 성향 현금 100%
-   - 시장 방향 65점 이상: 공격형 0%, 중립형 0%, 안정형 5%
-   - 시장 방향 50~64점: 공격형 10%, 중립형 15%, 안정형 20%
-   - 시장 방향 40~49점: 공격형 20%, 중립형 30%, 안정형 40%
-   - 시장 방향 40점 미만: 공격형 35%, 중립형 50%, 안정형 60%
-   - 두 기준 중 더 보수적인 현금 비중을 적용한다.
-2. 남은 주식 비중을 성향별 균형 점수(회사/타이밍 가중합)의 70점 초과 강도에 비례해 배분한다.
-3. 단일 섹터 최대 비중을 적용한다.
-   - 공격형 35%, 중립형 30%, 안정형 25%
-4. Sector Cap 초과분은 다른 섹터에 재분배하고, 재분배가 불가능하면 현금으로 전환한다.
-```
-
-### 6.3 예외 처리
-
-| 상황 | 처리 |
-|---|---|
-| 70점 이상 종목 0개 | “오늘은 편입 종목 없음” 표시 + 관찰 후보 TOP 5 표시 |
-| 단일 섹터 편중 | Sector Cap 적용 후 초과분 재분배, 불가능한 비중은 현금 전환 |
-| 편입 종목 1개 | 비중 100% 표시 + 분산 부족 경고 |
-| 데이터 부족 종목 | “분석 준비 중” 표시 또는 포트폴리오 제외 |
-
-### 6.4 갱신 주기
-
-- 매일 장 마감 후 1회 갱신을 기본 정책으로 한다.
-- MVP에서는 management command로 수동 갱신한다.
-- 평가 환경에서는 fixtures/seed 데이터로 동일 결과를 재현한다.
-
-## 7. 핵심 기능 명세
-
-| ID | 기능 | 우선순위 | 설명 |
+| ID | 기능 | 우선순위 | 수용 기준 |
 |---|---|---|---|
-| F-01 | 1년치 주식 데이터 fixtures | Must | 가격 시계열, 재무, 점수, 포트폴리오 seed 데이터 제공 |
-| F-02 | 3레이어 점수 계산/저장 | Must | 기업/타이밍/리스크 할인 기반 ScoreSnapshot 생성 |
-| F-03 | 성향별 추천 후보 포트폴리오 | Must | 성향별 회사/타이밍/신뢰도 허들을 통과한 종목만 편입 |
-| F-04 | 현금 포함 비중 산정 | Must | 주식 비중과 현금 비중을 함께 계산 |
-| F-05 | 메인 포트폴리오 화면 | Must | 포트폴리오 총점, 종목 카드, 비중, 관찰 후보 표시 |
-| F-06 | 종목 상세 스코어 리포트 | Must | 차트, 타이밍 카드, 지표 카드, 기술/재무 지표, 뉴스/공시 |
-| F-07 | 검색/필터 | Must | 종목명, 티커, 섹터, 점수 구간 검색 |
-| F-08 | 백테스트 | Must | 포트폴리오 vs KOSPI/KOSDAQ 누적 수익률 비교 |
-| F-09 | AI 3줄 코멘트 | Should | 긍정 요인, 부정 요인, 종합 의견 생성 및 캐싱 |
-| F-10 | 회원가입/로그인 | Should | JWT 기반 인증 |
-| F-11 | 관심 종목 | Should | 회원별 Watchlist 저장/삭제 |
-| F-12 | 투자 성향 설정 | Should | 공격/중립/안정형 가중치 반영 |
-| F-13 | 뉴스 감성 히스토리 | Nice | 일자별 뉴스 감성 추적 |
-| F-14 | 포트폴리오 변경 알림 | Nice | 편입/제외 변화 알림 |
-| F-15 | Sector Cap | Should | 성향별 섹터 최대 비중 제한 및 초과분 재분배 |
-| F-16 | 현금 비중 추천 | Should | 시장 상태와 분산 실패 비중을 현금으로 제안 |
+| F-01 | 기본 대시보드 | 필수 | 시장 지표 스트립과 편입 종목 상위 15개가 표시된다. |
+| F-02 | 오늘의 포트폴리오 전체 | 필수 | 편입 종목 전체가 테이블로 표시된다. |
+| F-03 | 투자 성향 변경 | 필수 | 중립형, 공격형, 안정형 선택 시 포트폴리오가 재조회된다. |
+| F-04 | 종목 검색 | 필수 | 종목 목록을 검색하고 리포트로 이동할 수 있다. |
+| F-05 | 종목 리포트 | 필수 | 차트, 점수 카드, 지표, 뉴스/공시가 표시된다. |
+| F-06 | AI 코멘트 | 권장 | 긍정 요인, 주의 요인, 종합 의견을 제공한다. |
+| F-07 | 커뮤니티 | 권장 | 종목별 의견을 확인할 수 있다. |
+| F-08 | 사용자 인증 | 권장 | 로그인, 회원가입, 마이페이지를 제공한다. |
+| F-09 | 관심 종목 | 선택 | 관심 종목 저장과 해제를 지원한다. |
+| F-10 | 알림 | 선택 | 편입/제외 변화 알림을 확장할 수 있다. |
 
-## 8. 주요 화면
+## 7. 주요 API
 
-### 8.1 Home: 오늘의 알파 포트폴리오
-
-- 포트폴리오 총점
-- 기준일
-- 편입 종목 수
-- 점수 비례 추천 비중
-- 편입 종목 카드
-- 관찰 후보 TOP 5
-- 백테스트 요약
-- 투자 유의 문구
-
-### 8.2 Stock Report: 종목별 스코어 리포트
-
-- 종목명, 티커, 업종
-- 큰 진단 문구
-- 핵심 요약 지표
-- 추세/모멘텀/변동성/수급 카드
-- 가격 차트 1년치: Close, EMA20, EMA50, EMA200, Bollinger Band, Volume
-- 종합 점수, 회사 점수, 타이밍 점수
-- 기업/타이밍/리스크 점수 카드
-- 기술 지표
-- 재무 지표
-- 뉴스/공시
-- AI 3줄 코멘트 영역
-
-### 8.3 Backtest
-
-- 포트폴리오 누적 수익률
-- KOSPI/KOSDAQ 누적 수익률
-- 승률
-- 최대 낙폭
-- 일별 리밸런싱 테이블
-
-## 9. 사용자 플로우
-
-### 9.1 핵심 시연 플로우
-
-1. 사용자가 메인 화면에 접속한다.
-2. 시스템은 중립형 기준 오늘의 알파 포트폴리오를 보여준다.
-3. 사용자는 편입 종목, 점수, 추천 비중, 추천 사유를 확인한다.
-4. 사용자가 종목 카드를 클릭한다.
-5. 시스템은 1년치 차트와 스코어 리포트를 보여준다.
-6. 사용자는 지표 카드, 기술/재무 지표, 뉴스/공시를 확인한다.
-7. 사용자는 백테스트 화면에서 추천 포트폴리오와 지수 수익률을 비교한다.
-
-### 9.2 확장 플로우
-
-1. 사용자가 회원가입/로그인을 한다.
-2. 투자 성향을 공격형/중립형/안정형 중 선택한다.
-3. 시스템은 성향별 가중치로 포트폴리오를 재계산한다.
-4. 사용자는 관심 종목을 저장한다.
-5. 종목 상세에서 AI 분석 보기를 누른다.
-6. 시스템은 AI 3줄 코멘트를 생성하거나 캐시된 결과를 반환한다.
-
-## 10. API 명세
-
-| Method | Endpoint | 설명 | 인증 |
+| 메서드 | 경로 | 설명 | 인증 |
 |---|---|---|---|
-| GET | `/api/portfolio/today/` | 오늘의 알파 포트폴리오 | Optional |
-| GET | `/api/portfolio/history/` | 포트폴리오 이력 | Optional |
-| GET | `/api/portfolio/backtest/?benchmark=KOSPI` | 백테스트 | Optional |
-| GET | `/api/stocks/` | 종목 검색/필터 | Optional |
-| GET | `/api/stocks/{ticker}/report/` | 종목 상세 스코어 리포트 | Optional |
-| GET | `/api/stocks/{ticker}/prices/` | 1년치 가격 시계열 | Optional |
-| POST | `/api/watchlist/{ticker}/` | 관심 종목 추가 | Required |
-| DELETE | `/api/watchlist/{ticker}/` | 관심 종목 삭제 | Required |
-| GET | `/api/watchlist/` | 내 관심 종목 목록 | Required |
-| POST | `/api/auth/register/` | 회원가입 | Public |
-| POST | `/api/auth/login/` | 로그인 | Public |
-| POST | `/api/auth/refresh/` | 토큰 갱신 | Public |
-| POST | `/api/stocks/{ticker}/ai-comment/` | AI 3줄 코멘트 생성 | Required, Phase 2 |
+| GET | `/api/portfolio/today/` | 오늘의 포트폴리오 조회 | 선택 |
+| GET | `/api/portfolio/today/?risk_type=aggressive` | 공격형 포트폴리오 조회 | 선택 |
+| GET | `/api/portfolio/today/?risk_type=stable` | 안정형 포트폴리오 조회 | 선택 |
+| GET | `/api/stocks/` | 종목 목록 조회 | 선택 |
+| GET | `/api/stocks/{ticker}/report/` | 종목 리포트 조회 | 선택 |
+| GET | `/api/stocks/{ticker}/prices/` | 종목 가격 시계열 조회 | 선택 |
+| POST | `/api/stocks/{ticker}/ai-comment/` | AI 코멘트 생성 또는 캐시 조회 | 선택 |
+| POST | `/api/watchlist/{ticker}/` | 관심 종목 추가 | 필요 |
+| DELETE | `/api/watchlist/{ticker}/` | 관심 종목 삭제 | 필요 |
 
-## 11. 응답 스키마 예시
+## 8. 비기능 요구사항
 
-```ts
-Portfolio {
-  baseDate: string
-  portfolioScore: number
-  rebalanceType: "daily"
-  threshold: 70
-  userRiskType: "neutral" | "aggressive" | "stable"
-  summary: string
-  sectorWarning: string
-  cashWeight: number
-  baseCashWeight: number
-  sectorCashWeight: number
-  cashReasons: string[]
-  sectorCap: number
-  hurdles: {
-    company: number
-    timing: number
-    reliability: number
-  }
-  allocationItems: AllocationItem[]
-  items: PortfolioItem[]
-  watchCandidates: StockSummary[]
-  benchmarkSummary: BenchmarkSummary
-}
+- 화면은 데스크톱 기준 금융 대시보드 스타일로 구성한다.
+- 주요 카드와 테이블은 모바일에서도 가로 스크롤 또는 반응형 배치를 지원한다.
+- API 실패 시 사용자에게 오류 메시지를 제공한다.
+- 투자 유의 문구를 명확히 표시한다.
+- 추천 결과는 투자 자문이 아니라 교육용 분석 결과임을 안내한다.
 
-PortfolioItem {
-  ticker: string
-  name: string
-  market: string
-  sector: string
-  totalScore: number
-  companyScore: number
-  timingScore: number
-  reliabilityScore: number
-  weight: number
-  reason: string
-  warning: string
-}
+## 9. 완료 기준
 
-AllocationItem {
-  type: "stock" | "cash"
-  ticker: string
-  name: string
-  sector: string
-  weight: number
-}
-```
+- 기본 대시보드(`/`)가 정상 표시된다.
+- AlphaPick 로고 클릭 시 홈으로 이동한다.
+- 오늘의 포트폴리오(`/portfolio`)에서 편입 종목 전체를 확인할 수 있다.
+- 백테스트 메뉴와 화면이 사용자 화면에 노출되지 않는다.
+- 종목 리포트에서 추천 근거를 확인할 수 있다.
+- `npm run build`가 성공한다.
+- `manage.py check`가 성공한다.
 
-```ts
-StockReport {
-  stock: StockSummary
-  score: ScoreSnapshot
-  financialMetric: FinancialMetric
-  priceSeries: PricePoint[] // 365 rows
-  investmentNotice: string
-}
-```
+## 10. 향후 확장
 
-## 12. 데이터 모델
-
-```mermaid
-erDiagram
-  User ||--o{ Watchlist : saves
-  Stock ||--o{ PriceDaily : has
-  Stock ||--o{ FinancialMetric : has
-  Stock ||--o{ ScoreSnapshot : receives
-  PortfolioRun ||--o{ PortfolioItem : contains
-  ScoreSnapshot ||--o{ PortfolioItem : explains
-  Stock ||--o{ PortfolioItem : included_in
-  Stock ||--o{ Watchlist : saved_as
-
-  Stock {
-    string ticker PK
-    string name
-    string market
-    string sector
-    string industry
-  }
-
-  PriceDaily {
-    int id PK
-    string ticker FK
-    date date
-    int close_price
-    int volume
-    float ema20
-    float ema50
-    float ema200
-  }
-
-  ScoreSnapshot {
-    int id PK
-    string ticker FK
-    date base_date
-    float total_score
-    float company_score
-    float timing_score
-    float reliability_score
-    json score_cards
-    json scoring_log
-  }
-
-  PortfolioRun {
-    int id PK
-    date base_date
-    float threshold
-    string rebalance_type
-    float portfolio_score
-  }
-
-  PortfolioItem {
-    int id PK
-    int portfolio_run_id FK
-    string ticker FK
-    float score
-    float weight
-    string reason
-    string warning
-  }
-```
-
-## 13. WBS / 일정
-
-| 날짜 | 작업 | 산출물 |
-|---|---|---|
-| 2026-05-22 | PRD 확정, 포트폴리오 정책 확정, ERD/Use Case/와이어프레임 작성 | PRD v1.0 |
-| 2026-05-29 | 주식 데이터 소스 검증, 1년치 fixtures 생성 | seed 데이터 |
-| 2026-06-05 | Django 모델/API/Auth 기본 구현 | Stock/Score/Portfolio/Auth API |
-| 2026-06-12 | 3레이어 점수 엔진, 70점 추천 후보 포트폴리오 로직 구현 | 추천 엔진 |
-| 2026-06-19 | Vue 메인/상세/검색/백테스트 화면 구현 | 프론트 MVP |
-| 2026-06-22 | KB 스타일 상세 리포트, 차트, 지표 카드 고도화 | 상세 대시보드 |
-| 2026-06-23 | AI 코멘트, 관심 종목, 성향별 가중치 확장 | 개인화/AI 기능 |
-| 2026-06-24 | QA, README, 발표자료, 산출물 정리 | 최종 제출 문서 |
-| 2026-06-25 | 최종 테스트 및 발표 | 최종본 |
-
-```mermaid
-gantt
-  title AlphaPick Schedule
-  dateFormat YYYY-MM-DD
-  section Planning
-  PRD/ERD/Wireframe       :2026-05-22, 1d
-  section Data
-  Data source and fixtures :2026-05-29, 1d
-  section Backend
-  Models/API/Auth/Scoring :2026-06-05, 8d
-  section Frontend
-  Portfolio/Report UI     :2026-06-19, 5d
-  section Integration
-  AI/Backtest/QA          :2026-06-23, 3d
-```
-
-## 14. 수용 기준
-
-- 메인 화면에 성향별 회사/타이밍/신뢰도 허들을 통과한 종목만 포트폴리오로 표시된다.
-- 주식 비중과 현금 비중의 합계가 100%다.
-- Sector Cap 초과분은 재분배되거나 현금으로 전환된다.
-- 편입 종목이 없으면 현금 100%와 관찰 후보 TOP 5가 표시된다.
-- 종목 상세 리포트는 1년치 가격 데이터와 핵심 지표를 제공한다.
-- 종목 상세 리포트에는 타이밍 카드, 점수 카드, 기술/재무 지표, 뉴스/공시가 포함된다.
-- 백테스트 화면에서 추천 포트폴리오와 KOSPI/KOSDAQ 수익률을 비교할 수 있다.
-- 검색 화면에서 종목 중복이 발생하지 않는다.
-- fixtures/seed만으로 프로젝트 실행과 평가가 가능하다.
-- 최종 평가 플로우 `추천 포트폴리오 생성 → 상세 리포트 → 백테스트`가 정상 동작한다.
-- 모든 화면에 투자 참고용 서비스이며 수익을 보장하지 않는다는 면책 문구를 포함한다.
-
-## 15. Assumptions and Out of Scope
-
-### Assumptions
-
-- MVP 대상은 KOSPI/KOSDAQ 종목이다.
-- 포트폴리오는 매일 장 마감 후 1회 갱신한다.
-- 기본 편입 기준은 중립형 기준 `company_score >= 70`, `timing_score >= 70`, `reliability_score >= 70`이다.
-- 기본 투자 성향은 중립형이다.
-- 외부 API 장애를 대비해 1년치 fixtures를 함께 제공한다.
-
-### Out of Scope
-
-- 실제 매수/매도 주문
-- WebSocket 기반 틱 단위 실시간 스트리밍
-- 유료 결제/구독
-- 종목 커뮤니티/댓글
-- 수익률 보장 또는 투자 자문 행위
-
-## 16. 최종 요약
-
-AlphaPick의 핵심은 “좋아 보이는 종목 10개를 보여주는 서비스”가 아니다.
-매일 전체 종목을 점수화한 뒤 **성향별 회사 가치·진입 타이밍 허들을 통과한 후보만 선별하고**, 통과한 종목을 **현금과 Sector Cap이 반영된 포트폴리오**로 구성하며, 각 종목의 편입 근거를 **상세 스코어 리포트**로 설명하고, 마지막으로 **백테스트**로 추천 품질을 검증하는 서비스다.
+- 실시간 또는 최신 시세 데이터 연동
+- OpenDART 기반 재무/공시 데이터 보강
+- 관심 종목 변화 알림
+- 사용자별 포트폴리오 저장
+- 종목 리포트 PDF 내보내기

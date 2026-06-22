@@ -8,11 +8,11 @@
           </span>
           <div>
             <div class="flex flex-wrap items-center gap-2">
-              <p class="text-sm font-black text-emerald-700">종목 토론방</p>
+              <p class="text-sm font-extrabold text-emerald-700">종목 토론방</p>
               <span v-if="stock" class="badge bg-white text-slate-600">{{ stock.ticker }}</span>
               <span v-if="stock?.sector" class="badge bg-emerald-100 text-emerald-800">{{ stock.sector }}</span>
             </div>
-            <h1 class="mt-1 text-3xl font-black text-slate-950 md:text-4xl">
+            <h1 class="mt-1 text-3xl font-extrabold text-slate-950 md:text-4xl">
               {{ stock?.name || "종목" }} 토론방
             </h1>
             <p class="mt-2 max-w-3xl leading-7 text-slate-600">
@@ -32,8 +32,8 @@
 
     <div v-else class="flex flex-col justify-between gap-4 md:flex-row md:items-end">
       <div>
-        <p class="text-sm font-black text-emerald-600">전체 종목 토론</p>
-        <h1 class="text-3xl font-black text-slate-950">투자자들의 종목별 의견을 확인하세요</h1>
+        <p class="text-sm font-extrabold text-emerald-600">전체 종목 토론</p>
+        <h1 class="text-3xl font-extrabold text-slate-950">투자자들의 종목별 의견을 확인하세요</h1>
         <p class="mt-2 max-w-3xl leading-7 text-slate-600">
           게시글의 종목명을 눌러 리포트로 이동할 수 있습니다. 새 글은 각 종목 리포트의 토론방에서 작성합니다.
         </p>
@@ -57,7 +57,7 @@
               <Send :size="20" />
             </span>
             <div>
-              <h2 class="text-xl font-black text-slate-950">{{ stock?.name }} 의견 작성</h2>
+              <h2 class="text-xl font-extrabold text-slate-950">{{ stock?.name }} 의견 작성</h2>
               <p class="text-sm text-slate-500">투자 근거와 반대 의견을 구체적으로 남겨주세요.</p>
             </div>
           </div>
@@ -87,7 +87,7 @@
         </form>
 
         <div v-else-if="isStockRoom" class="panel p-5">
-          <h2 class="text-xl font-black text-slate-950">로그인하고 의견을 남겨보세요</h2>
+          <h2 class="text-xl font-extrabold text-slate-950">로그인하고 의견을 남겨보세요</h2>
           <p class="mt-2 text-slate-600">게시글 작성, 좋아요, 댓글은 로그인한 사용자만 사용할 수 있습니다.</p>
           <RouterLink class="btn-primary mt-4" :to="loginRoute">로그인</RouterLink>
         </div>
@@ -111,7 +111,7 @@
                     {{ post.stock_name || post.stock }} 토론방
                   </RouterLink>
                 </div>
-                <h2 class="mt-2 text-2xl font-black text-slate-950">{{ post.title }}</h2>
+                <h2 class="mt-2 text-2xl font-extrabold text-slate-950">{{ post.title }}</h2>
               </div>
               <span v-if="post.can_edit" class="badge bg-slate-100 text-slate-600">내 글</span>
             </div>
@@ -135,7 +135,7 @@
           </div>
 
           <div class="border-t border-slate-100 bg-slate-50/70 p-5">
-            <h3 class="font-black text-slate-950">댓글</h3>
+            <h3 class="font-extrabold text-slate-950">댓글</h3>
             <div class="mt-3 space-y-3">
               <div
                 v-for="comment in post.comments"
@@ -144,7 +144,7 @@
               >
                 <div class="flex items-start justify-between gap-3">
                   <div>
-                    <p class="text-sm font-black text-slate-900">
+                    <p class="text-sm font-extrabold text-slate-900">
                       {{ comment.author.display_name }}
                       <span class="font-medium text-slate-400">· {{ formatDate(comment.created_at) }}</span>
                     </p>
@@ -187,7 +187,7 @@
 
         <div v-if="!isLoading && !posts.length" class="panel p-8 text-center">
           <MessageCircle :size="36" class="mx-auto text-slate-300" />
-          <p class="mt-3 font-black text-slate-700">
+          <p class="mt-3 font-extrabold text-slate-700">
             {{ isStockRoom ? "아직 이 종목에 등록된 의견이 없습니다." : "아직 등록된 종목 토론이 없습니다." }}
           </p>
           <p class="mt-1 text-sm text-slate-500">
@@ -199,7 +199,7 @@
       <aside class="panel h-fit p-5 lg:sticky lg:top-24">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <h2 class="text-xl font-black text-slate-950">참여 투자자</h2>
+            <h2 class="text-xl font-extrabold text-slate-950">참여 투자자</h2>
             <p class="mt-1 text-sm text-slate-500">관심 있는 투자자를 팔로우하세요.</p>
           </div>
           <Users :size="24" class="text-emerald-600" />
@@ -209,7 +209,7 @@
           <article v-for="user in users" :key="user.id" class="rounded-lg border border-slate-200 bg-white p-3">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <p class="truncate font-black text-slate-950">{{ user.display_name }}</p>
+                <p class="truncate font-extrabold text-slate-950">{{ user.display_name }}</p>
                 <p class="truncate text-sm text-slate-500">@{{ user.username }}</p>
               </div>
               <span v-if="user.is_me" class="badge bg-slate-100 text-slate-600">나</span>

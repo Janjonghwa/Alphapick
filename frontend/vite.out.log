@@ -1,0 +1,44 @@
+
+> alphapick-frontend@1.0.0 dev
+> vite --host 0.0.0.0 --host 127.0.0.1
+
+
+  [32m[1mVITE[22m v8.0.13[39m  [2mready in [0m[1m192[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2mAM 11:30:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/CommunityView.vue, /src/assets/styles.css[22m
+[2mAM 11:30:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/layout/AppHeader.vue, /src/assets/styles.css[22m
+[2mAM 11:30:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mAM 11:30:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/LoginView.vue, /src/assets/styles.css[22m
+[2mAM 11:30:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/MyPageView.vue, /src/assets/styles.css[22m
+[2mAM 11:30:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/PortfolioView.vue, /src/assets/styles.css[22m
+[2mAM 11:30:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/ProfileEditView.vue, /src/assets/styles.css[22m
+[2mAM 11:30:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/StockSearchView.vue, /src/assets/styles.css[22m
+[2mAM 11:30:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/StockReportView.vue, /src/assets/styles.css[22m
+[2mAM 11:30:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/StockMetricDetailView.vue, /src/assets/styles.css[22m
+[2mAM 11:30:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/RegisterView.vue, /src/assets/styles.css[22m
+[2mAM 11:31:49[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/assets/styles.css[22m
+[2mAM 11:31:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/StockSearchView.vue, /src/assets/styles.css[22m
+[2mAM 11:31:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/PortfolioView.vue, /src/assets/styles.css[22m
+[2mAM 11:32:17[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mAM 11:32:40[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/layout/AppHeader.vue, /src/assets/styles.css[22m
+[2mAM 11:48:55[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mAM 11:53:46[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/MarketStrip.vue, /src/assets/styles.css[22m
+[2mAM 11:53:47[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mAM 11:54:19[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/MarketStrip.vue, /src/assets/styles.css[22m
+[2mAM 11:55:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/MarketStrip.vue, /src/assets/styles.css[22m
+[2mAM 11:56:08[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/MarketStrip.vue, /src/assets/styles.css[22m
+[2mAM 11:58:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/MarketStrip.vue, /src/assets/styles.css[22m
+[2mAM 11:58:29[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mAM 11:58:39[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mAM 11:59:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mPM 12:01:11[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mPM 12:03:17[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mPM 12:04:56[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/layout/AppHeader.vue, /src/assets/styles.css[22m
+[2mPM 12:06:19[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mPM 12:09:09[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mPM 12:10:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mPM 12:10:52[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/views/HomeView.vue, /src/assets/styles.css[22m
+[2mPM 12:22:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mindex.html[22m
+[2mPM 12:22:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/layout/AppHeader.vue, /src/assets/styles.css[22m
