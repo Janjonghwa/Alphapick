@@ -41,6 +41,16 @@ POSITIVE_KEYWORDS = {
     "호조",
     "돌파",
     "신고가",
+    "상승",
+    "급등",
+    "강세",
+    "반등",
+    "수혜",
+    "개선",
+    "성장",
+    "최대치",
+    "최고",
+    "기대",
 }
 NEGATIVE_KEYWORDS = {
     "적자",
@@ -57,6 +67,15 @@ NEGATIVE_KEYWORDS = {
     "리콜",
     "불성실",
     "부진",
+    "우려",
+    "약세",
+    "하락세",
+    "손실",
+    "위기",
+    "둔화",
+    "악재",
+    "경고",
+    "감소",
 }
 
 
@@ -526,8 +545,12 @@ class Command(BaseCommand):
         else:
             raw_avg = 0.0
             
-        # Damping factor based on the ratio of active articles to total articles
-        damping_factor = len(active_weights) / len(articles)
+        # Non-linear damping to prevent neutral news from heavily diluting active signals,
+        # while still accounting for sample size confidence.
+        active_ratio = len(active_weights) / len(articles)
+        damping_ratio = active_ratio ** 0.4  # Slower decay to preserve active sentiment
+        damping_size = 1.0 - math.exp(-len(active_weights) / 2.0)  # Confidence based on count
+        damping_factor = damping_ratio * damping_size
         final_raw_avg = raw_avg * damping_factor
         
         score_100 = round((final_raw_avg + 1) * 50, 1)
