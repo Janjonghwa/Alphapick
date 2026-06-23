@@ -483,9 +483,12 @@ class Command(BaseCommand):
                 "reason": "최근 수집된 종목 관련 뉴스가 없습니다.",
                 "updated_at": timezone.now().isoformat(),
             }
-        weighted_scores = []
         counts = {"positive": 0, "neutral": 0, "negative": 0}
         now = timezone.now()
+        
+        active_weighted_scores = []
+        active_weights = []
+        
         for item in articles:
             counts[item["sentiment"]] += 1
             freshness = self.freshness_weight(item.get("published_at"), now)
@@ -502,20 +505,48 @@ class Command(BaseCommand):
                 * scope
                 * confirmation
             )
-            weighted_scores.append(score)
             item["article_score"] = round(score, 4)
-        raw = sum(weighted_scores)
-        normalized = max(-1, min(1, raw))
-        score_100 = round((normalized + 1) * 50, 1)
+            
+            if item["sentiment"] in {"positive", "negative"}:
+                weight = (
+                    item["impact_score"]
+                    * item["relevance_score"]
+                    * item["confidence"]
+                    * freshness
+                    * source
+                    * scope
+                    * confirmation
+                )
+                active_weighted_scores.append(item["sentiment_score"] * weight)
+                active_weights.append(weight)
+
+        sum_active_weights = sum(active_weights)
+        if sum_active_weights > 0:
+            raw_avg = sum(active_weighted_scores) / sum_active_weights
+        else:
+            raw_avg = 0.0
+            
+        # Damping factor based on the ratio of active articles to total articles
+        damping_factor = len(active_weights) / len(articles)
+        final_raw_avg = raw_avg * damping_factor
+        
+        score_100 = round((final_raw_avg + 1) * 50, 1)
+        
+        if score_100 >= 55.0:
+            label = "긍정"
+        elif score_100 <= 45.0:
+            label = "부정"
+        else:
+            label = "중립"
+            
         confidence = round(sum(item["confidence"] for item in articles) / len(articles), 2)
-        winner = max(counts, key=counts.get)
         return {
             "type": "news_sentiment",
             "score": score_100,
-            "label": {"positive": "긍정", "neutral": "중립", "negative": "부정"}[winner],
+            "label": label,
             **counts,
             "confidence": confidence,
-            "reason": f"최근 뉴스 {len(articles)}건을 분석해 긍정 {counts['positive']}건, 중립 {counts['neutral']}건, 부정 {counts['negative']}건으로 집계했습니다.",
+            "reason": f"최근 뉴스/공시 {len(articles)}건 중 긍정 {counts['positive']}건, 중립 {counts['neutral']}건, 부정 {counts['negative']}건을 감안하여 활성 심리 감도({len(active_weights)}건) 기준 종합 {score_100:.1f}점({label})으로 평가했습니다.",
             "updated_at": timezone.now().isoformat(),
         }
 
