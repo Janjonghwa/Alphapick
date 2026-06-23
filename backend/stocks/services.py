@@ -1,16 +1,18 @@
 from collections import Counter
 from datetime import date, timedelta
 
+import pandas as pd
 from django.db import transaction
 from django.db.models import Max, Prefetch
 
-from .models import AICommentCache, PortfolioItem, PortfolioRun, PriceDaily, ScoreSnapshot, Stock
+from .models import AICommentCache, FinancialMetric, PortfolioItem, PortfolioRun, PriceDaily, ScoreSnapshot, Stock
 
 
 PORTFOLIO_THRESHOLD = 70
 MIN_RELIABILITY_SCORE = 70
 MIN_COMPONENT_SCORE = 70
 PRICE_HISTORY_DAYS = 365
+PRICE_REFRESH_LOOKBACK_DAYS = PRICE_HISTORY_DAYS + 40
 BACKTEST_PERIODS = {
     "1w": {"days": 7, "label": "1주"},
     "1m": {"days": 30, "label": "1개월"},
@@ -145,6 +147,29 @@ def score_for_risk(score, risk_type=RISK_TYPE_NEUTRAL):
     risk_discount = score.total_score / neutral_base
     adjusted_score = weighted_component_score(score, risk_type) * risk_discount
     return round(max(0, min(100, adjusted_score)), 1)
+
+
+def stock_theme_links(stock):
+    return list(stock.theme_links.select_related("theme__group").all())
+
+
+def display_sector_for_stock(stock):
+    links = stock_theme_links(stock)
+    primary = next((link for link in links if link.is_primary), None) or (links[0] if links else None)
+    return primary.theme.group.name if primary else stock.sector
+
+
+def theme_names_for_stock(stock):
+    names = []
+    for link in stock_theme_links(stock):
+        if link.theme.name not in names:
+            names.append(link.theme.name)
+    return names
+
+
+def primary_theme_for_stock(stock):
+    themes = theme_names_for_stock(stock)
+    return themes[0] if themes else stock.primary_theme or stock.sector
 
 
 def company_score_for_risk(score, risk_type=RISK_TYPE_NEUTRAL):
@@ -338,8 +363,10 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
                 "ticker": score.stock.ticker,
                 "name": score.stock.name,
                 "market": score.stock.market,
-                "sector": score.stock.sector,
-                "primary_theme": score.stock.primary_theme or score.stock.sector,
+                "sector": display_sector_for_stock(score.stock),
+                "original_sector": score.stock.sector,
+                "primary_theme": primary_theme_for_stock(score.stock),
+                "themes": theme_names_for_stock(score.stock),
                 "total_score": adjusted_score,
                 "eligibility_score": round(eligibility_score, 1),
                 "company_score": company_score,
@@ -403,7 +430,9 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
             "name": row["name"],
             "market": row["market"],
             "sector": row["sector"],
+            "original_sector": row["original_sector"],
             "primary_theme": row["primary_theme"],
+            "themes": row["themes"],
             "industry": row["score_obj"].stock.industry,
             "latest_score": row["total_score"],
             "signal": row["signal"],
@@ -424,6 +453,7 @@ def build_dynamic_portfolio_payload(base_date=None, risk_type=RISK_TYPE_NEUTRAL)
             "ticker": row["ticker"],
             "name": row["name"],
             "sector": row["sector"],
+            "themes": row["themes"],
             "weight": row["weight"],
         }
         for row in items
@@ -550,7 +580,8 @@ def portfolio_history(limit=20):
 
 def stock_report(ticker):
     score_date = latest_score_date()
-    stock = Stock.objects.get(ticker=ticker)
+    stock = Stock.objects.prefetch_related("theme_links__theme__group").get(ticker=ticker)
+    refresh_price_history_from_pykrx(stock)
     score = stock.scores.filter(base_date=score_date).first() or stock.scores.first()
     metric = stock.financial_metrics.order_by("-base_date").first()
     prices = list(stock.prices.order_by("-date")[:PRICE_HISTORY_DAYS])
@@ -561,6 +592,143 @@ def stock_report(ticker):
         "metric": metric,
         "prices": prices,
     }
+
+
+def refresh_price_history_from_pykrx(stock):
+    """Best-effort daily OHLCV refresh for report pages.
+
+    The app stores EOD-style data locally, but same-day pykrx rows can change
+    after an earlier intraday seed. Refreshing only the viewed ticker prevents
+    obviously stale current price and volume displays without blocking the UI
+    when pykrx is unavailable.
+    """
+    try:
+        from pykrx import stock as krx_stock
+    except Exception:
+        return False
+
+    code = stock.ticker.split(".")[0]
+    end_date = date.today()
+    start_date = end_date - timedelta(days=PRICE_REFRESH_LOOKBACK_DAYS)
+
+    try:
+        raw = krx_stock.get_market_ohlcv_by_date(
+            start_date.strftime("%Y%m%d"),
+            end_date.strftime("%Y%m%d"),
+            code,
+        )
+    except Exception:
+        return False
+
+    frame = normalize_pykrx_ohlcv(raw)
+    if frame.empty:
+        return False
+
+    latest = frame.iloc[-1]
+    latest_date = frame.index[-1].date()
+    saved = stock.prices.order_by("-date").first()
+    if (
+        saved
+        and saved.date == latest_date
+        and saved.close_price == int(latest["close"])
+        and saved.volume == int(latest["volume"])
+    ):
+        return False
+
+    save_refreshed_prices(stock, frame.tail(PRICE_HISTORY_DAYS))
+    metric = FinancialMetric.objects.filter(stock=stock).order_by("-base_date").first()
+    if metric:
+        metric.current_price = int(latest["close"])
+        metric.save(update_fields=["current_price"])
+    update_refreshed_volume_score(stock, frame)
+    return True
+
+
+def normalize_pykrx_ohlcv(raw):
+    if raw.empty:
+        return pd.DataFrame()
+
+    frame = raw.copy()
+    column_map = {
+        "시가": "open",
+        "고가": "high",
+        "저가": "low",
+        "종가": "close",
+        "거래량": "volume",
+    }
+    frame = frame.rename(columns=column_map)
+    required = ["open", "high", "low", "close", "volume"]
+    if not all(column in frame.columns for column in required):
+        return pd.DataFrame()
+
+    frame = frame[required].dropna()
+    for column in required:
+        frame[column] = pd.to_numeric(frame[column], errors="coerce")
+    frame = frame.dropna()
+    frame = frame[(frame["open"] > 0) & (frame["high"] > 0) & (frame["low"] > 0) & (frame["close"] > 0)]
+    frame.index = pd.to_datetime(frame.index)
+    frame = frame.sort_index()
+    close = frame["close"]
+    frame["ema20"] = close.ewm(span=20, adjust=False).mean()
+    frame["ema50"] = close.ewm(span=50, adjust=False).mean()
+    frame["ema200"] = close.ewm(span=200, adjust=False).mean()
+    ma20 = close.rolling(20).mean()
+    std20 = close.rolling(20).std()
+    frame["bb_upper"] = ma20 + std20 * 2
+    frame["bb_lower"] = ma20 - std20 * 2
+    direction = close.diff().fillna(0).apply(lambda value: 1 if value > 0 else -1 if value < 0 else 0)
+    frame["obv"] = (direction * frame["volume"]).cumsum()
+    return frame
+
+
+@transaction.atomic
+def save_refreshed_prices(stock, frame):
+    start = frame.index[0].date()
+    PriceDaily.objects.filter(stock=stock, date__gte=start).delete()
+    PriceDaily.objects.bulk_create(
+        [
+            PriceDaily(
+                stock=stock,
+                date=row_date.date(),
+                open_price=int(row["open"]),
+                high_price=int(row["high"]),
+                low_price=int(row["low"]),
+                close_price=int(row["close"]),
+                volume=int(row["volume"]),
+                ema20=None if pd.isna(row["ema20"]) else float(row["ema20"]),
+                ema50=None if pd.isna(row["ema50"]) else float(row["ema50"]),
+                ema200=None if pd.isna(row["ema200"]) else float(row["ema200"]),
+                bb_upper=None if pd.isna(row["bb_upper"]) else float(row["bb_upper"]),
+                bb_lower=None if pd.isna(row["bb_lower"]) else float(row["bb_lower"]),
+                obv=None if pd.isna(row["obv"]) else float(row["obv"]),
+            )
+            for row_date, row in frame.iterrows()
+        ],
+        batch_size=1000,
+    )
+
+
+def update_refreshed_volume_score(stock, frame):
+    latest_score = ScoreSnapshot.objects.filter(stock=stock).order_by("-base_date").first()
+    if not latest_score:
+        return
+
+    recent_volume = frame["volume"].tail(20)
+    average_volume = float(recent_volume.mean()) if not recent_volume.empty else 0
+    latest_volume = float(frame["volume"].iloc[-1])
+    volume_ratio = round(latest_volume / average_volume, 2) if average_volume else 1.0
+    volume_surge = volume_ratio >= 2.0
+    latest_score.volume_ratio = volume_ratio
+    latest_score.volume_surge_flag = volume_surge
+
+    indicators = list(latest_score.technical_indicators or [])
+    for indicator in indicators:
+        if indicator.get("label") == "거래량 배율":
+            indicator["value"] = volume_ratio
+            indicator["status"] = "급증" if volume_surge else "보통"
+            break
+    latest_score.technical_indicators = indicators
+    latest_score.save(update_fields=["volume_ratio", "volume_surge_flag", "technical_indicators"])
 
 
 def normalize_backtest_period(value):

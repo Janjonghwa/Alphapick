@@ -9,17 +9,25 @@
           <div class="flex flex-wrap items-center gap-2">
             <h1 class="text-3xl font-extrabold text-slate-950">{{ report.stock.name }}</h1>
             <span class="badge bg-slate-100 text-slate-600">{{ report.stock.ticker }}</span>
-            <span class="badge bg-blue-50 text-blue-700">{{ report.stock.sector }}</span>
-            <span class="badge bg-emerald-50 text-emerald-700">{{ report.stock.primary_theme }}</span>
+            <span class="text-sm font-extrabold text-blue-600">{{ report.score.signal }}</span>
+            <span class="badge bg-emerald-50 text-emerald-700">{{ report.stock.sector }}</span>
+            <span
+              v-for="theme in stockThemes"
+              :key="theme"
+              class="badge bg-blue-50 text-blue-700"
+            >
+              {{ theme }}
+            </span>
           </div>
-          <div class="mt-2 flex flex-wrap gap-2">
-            <span class="badge bg-slate-950 text-white">{{ report.score.signal }}</span>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <p class="text-3xl font-extrabold leading-none text-slate-950">{{ latestPrice }}원</p>
+            <p class="text-sm font-bold text-slate-500">{{ latestTradeDateText }}</p>
+            <p class="text-sm font-extrabold" :class="dailyChangeClass">{{ dailyChangeSummaryText }}</p>
             <span v-if="report.stock.low_liquidity_flag" class="badge bg-amber-100 text-amber-700">유동성 주의</span>
             <span v-if="report.score.fail_safe_flag" class="badge bg-red-100 text-red-700">Fail-safe</span>
             <span v-if="report.score.volume_surge_flag" class="badge bg-blue-100 text-blue-700">거래량 급증</span>
             <span v-if="report.score.target_upside_clipped" class="badge bg-amber-100 text-amber-700">목표가 200%+ 클리핑</span>
           </div>
-          <p class="mt-2 text-sm font-bold text-slate-500">데이터 기준일 {{ report.score.base_date }}</p>
         </div>
         <div class="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
           <RouterLink
@@ -61,9 +69,21 @@
             <span class="text-violet-500">EMA200</span>
           </div>
         </div>
-        <svg class="h-[320px] w-full overflow-visible" viewBox="0 0 900 320" role="img" aria-label="stock price chart">
-          <line x1="40" y1="270" x2="880" y2="270" stroke="#e2e8f0" />
-          <line x1="40" y1="35" x2="40" y2="270" stroke="#e2e8f0" />
+        <svg class="h-[340px] w-full overflow-visible" viewBox="0 0 900 340" role="img" aria-label="stock price chart">
+          <g class="text-[11px] font-bold text-slate-400">
+            <g v-for="tick in priceAxisTicks" :key="`price-${tick.value}`">
+              <line :x1="chartLeft" :x2="chartRight" :y1="tick.y" :y2="tick.y" stroke="#eef2f7" />
+              <text :x="chartLeft - 10" :y="tick.y + 4" text-anchor="end" fill="currentColor">{{ tick.label }}</text>
+            </g>
+            <g v-for="tick in dateAxisTicks" :key="`date-${tick.label}`">
+              <line :x1="tick.x" :x2="tick.x" :y1="chartBottom" :y2="chartBottom + 5" stroke="#cbd5e1" />
+              <text :x="tick.x" :y="chartBottom + 22" text-anchor="middle" fill="currentColor">{{ tick.label }}</text>
+            </g>
+            <text :x="chartLeft" y="26" text-anchor="start" fill="currentColor">가격(원)</text>
+            <text :x="chartLeft" y="322" text-anchor="start" fill="currentColor">거래량</text>
+          </g>
+          <line :x1="chartLeft" :y1="chartBottom" :x2="chartRight" :y2="chartBottom" stroke="#e2e8f0" />
+          <line :x1="chartLeft" y1="35" :x2="chartLeft" :y2="chartBottom" stroke="#e2e8f0" />
           <polyline :points="linePoints('bb_upper')" fill="none" stroke="#cbd5e1" stroke-dasharray="5 5" stroke-width="2" />
           <polyline :points="linePoints('bb_lower')" fill="none" stroke="#cbd5e1" stroke-dasharray="5 5" stroke-width="2" />
           <polyline :points="linePoints('ema200')" fill="none" stroke="#8b5cf6" stroke-dasharray="8 6" stroke-width="3" />
@@ -74,8 +94,30 @@
             <rect :x="bar.x" :y="bar.y" :width="bar.width" :height="bar.height" :fill="bar.fill" opacity="0.7" />
           </g>
         </svg>
+        <div class="mt-4 grid gap-3 md:grid-cols-4">
+          <div class="rounded-lg border border-slate-100 bg-white p-4">
+            <p class="text-xs font-extrabold text-slate-400">최신 일봉가 / 기간 수익률</p>
+            <p class="mt-2 text-lg font-extrabold text-slate-950">{{ latestPrice }}원</p>
+            <p class="mt-1 text-sm font-bold" :class="chartReturnClass">{{ chartReturnText }}</p>
+          </div>
+          <div class="rounded-lg border border-slate-100 bg-white p-4">
+            <p class="text-xs font-extrabold text-slate-400">이동평균 배열</p>
+            <p class="mt-2 text-sm font-extrabold text-slate-800">{{ movingAverageSummary.label }}</p>
+            <p class="mt-1 text-xs font-bold leading-5 text-slate-500">{{ movingAverageSummary.detail }}</p>
+          </div>
+          <div class="rounded-lg border border-slate-100 bg-white p-4">
+            <p class="text-xs font-extrabold text-slate-400">거래량</p>
+            <p class="mt-2 text-sm font-extrabold text-slate-800">{{ volumeSummary.label }}</p>
+            <p class="mt-1 text-xs font-bold leading-5 text-slate-500">{{ volumeSummary.detail }}</p>
+          </div>
+          <div class="rounded-lg border border-slate-100 bg-white p-4">
+            <p class="text-xs font-extrabold text-slate-400">볼린저밴드 위치</p>
+            <p class="mt-2 text-sm font-extrabold text-slate-800">{{ bollingerSummary.label }}</p>
+            <p class="mt-1 text-xs font-bold leading-5 text-slate-500">{{ bollingerSummary.detail }}</p>
+          </div>
+        </div>
         <p class="mt-4 rounded-lg bg-slate-50 p-4 text-sm font-bold leading-6 text-slate-600">
-          핵심 관찰: 현재가는 {{ latestPrice }}원이며, 종합 점수 {{ report.score.total_score }}점으로
+          핵심 관찰: {{ chartObservation }} 종합 점수 {{ report.score.total_score }}점으로
           {{ report.score.verdict }} 상태입니다. {{ report.score.warning }}
         </p>
       </div>
@@ -348,8 +390,19 @@ const aiComment = ref(null);
 const aiLoading = ref(false);
 const aiError = ref("");
 const componentThreshold = 70;
+const chartLeft = 70;
+const chartRight = 870;
+const chartTop = 35;
+const chartBottom = 270;
+const chartWidth = chartRight - chartLeft;
+const chartPriceHeight = 210;
 
 const aiLoadingLabel = computed(() => (aiComment.value ? "다시 보기" : "AI 분석 보기"));
+
+const stockThemes = computed(() => {
+  const themes = report.value?.stock?.themes || [];
+  return themes.length ? themes : [report.value?.stock?.primary_theme].filter(Boolean);
+});
 
 const summaryMetricText = computed(() => {
   const metrics = report.value?.score?.summary_metrics || [];
@@ -381,6 +434,125 @@ const areaScoreText = computed(() => {
 const latestPrice = computed(() => {
   const price = report.value?.priceSeries?.at(-1)?.close_price;
   return formatNumber(price || report.value?.financialMetric?.current_price || 0);
+});
+
+const latestChartPoint = computed(() => report.value?.priceSeries?.at(-1) || {});
+const firstChartPoint = computed(() => report.value?.priceSeries?.[0] || {});
+const previousChartPoint = computed(() => {
+  const prices = report.value?.priceSeries || [];
+  return prices.length > 1 ? prices.at(-2) : {};
+});
+
+const chartReturn = computed(() => {
+  const first = Number(firstChartPoint.value.close_price || 0);
+  const latest = Number(latestChartPoint.value.close_price || 0);
+  if (!first || !latest) return null;
+  return ((latest - first) / first) * 100;
+});
+
+const dayChange = computed(() => {
+  const previous = Number(previousChartPoint.value.close_price || 0);
+  const latest = Number(latestChartPoint.value.close_price || 0);
+  if (!previous || !latest) return null;
+  return ((latest - previous) / previous) * 100;
+});
+
+const dailyChangeAmount = computed(() => {
+  const previous = Number(previousChartPoint.value.close_price || 0);
+  const latest = Number(latestChartPoint.value.close_price || 0);
+  if (!previous || !latest) return null;
+  return latest - previous;
+});
+
+const latestTradeDateText = computed(() => {
+  const value = latestChartPoint.value.date || latestChartPoint.value.trade_date || latestChartPoint.value.base_date;
+  const label = formatKoreanChartDate(value);
+  return label === "-" ? "최신 일봉 기준" : `${label} 기준`;
+});
+
+const dailyChangeSummaryText = computed(() => {
+  if (dayChange.value === null || dailyChangeAmount.value === null) return "전일대비 데이터 부족";
+  return `전일대비 ${signedPriceText(dailyChangeAmount.value)}원 (${signedPercentText(dayChange.value)})`;
+});
+
+const dailyChangeClass = computed(() => {
+  const value = dayChange.value || 0;
+  if (value > 0) return "text-emerald-600";
+  if (value < 0) return "text-rose-500";
+  return "text-slate-500";
+});
+
+const chartReturnText = computed(() => {
+  const periodReturn = chartReturn.value;
+  const dailyReturn = dayChange.value;
+  if (periodReturn === null) return "수익률 데이터 부족";
+  const dailyText = dailyReturn === null ? "" : ` · 전일 ${signedPercentText(dailyReturn)}`;
+  return `차트 구간 ${signedPercentText(periodReturn)}${dailyText}`;
+});
+
+const chartReturnClass = computed(() => {
+  const value = chartReturn.value || 0;
+  if (value > 0) return "text-emerald-600";
+  if (value < 0) return "text-rose-600";
+  return "text-slate-500";
+});
+
+const movingAverageSummary = computed(() => {
+  const latest = latestChartPoint.value;
+  const close = Number(latest.close_price || 0);
+  const ema20 = Number(latest.ema20 || 0);
+  const ema50 = Number(latest.ema50 || 0);
+  const ema200 = Number(latest.ema200 || 0);
+  if (!close || !ema20 || !ema50 || !ema200) {
+    return { label: "이동평균 데이터 부족", detail: "EMA20·50·200 중 일부 값이 없습니다." };
+  }
+  const bullish = close >= ema20 && ema20 >= ema50 && ema50 >= ema200;
+  const pullback = close >= ema50 && close < ema20;
+  const bearish = close < ema50;
+  const label = bullish ? "정배열 추세" : pullback ? "단기 눌림 구간" : bearish ? "중기선 하회" : "혼조 배열";
+  return {
+    label,
+    detail: `종가 ${formatNumber(close)} · EMA20 ${formatNumber(ema20)} · EMA50 ${formatNumber(ema50)} · EMA200 ${formatNumber(ema200)}`,
+  };
+});
+
+const volumeSummary = computed(() => {
+  const prices = report.value?.priceSeries || [];
+  const latestVolume = Number(latestChartPoint.value.volume || 0);
+  const recent = prices.slice(-20).map((point) => Number(point.volume || 0)).filter(Boolean);
+  if (!latestVolume || !recent.length) {
+    return { label: "거래량 데이터 부족", detail: "최근 거래량 비교가 어렵습니다." };
+  }
+  const average = recent.reduce((sum, value) => sum + value, 0) / recent.length;
+  const ratio = average ? latestVolume / average : 0;
+  const label = ratio >= 2 ? "거래량 급증" : ratio >= 1.2 ? "평균 대비 증가" : ratio <= 0.7 ? "거래량 둔화" : "평균권 거래량";
+  return {
+    label,
+    detail: `최근 20일 평균 대비 ${ratio.toFixed(1)}배 · 최근 거래량 ${formatCompactNumber(latestVolume)}`,
+  };
+});
+
+const bollingerSummary = computed(() => {
+  const latest = latestChartPoint.value;
+  const close = Number(latest.close_price || 0);
+  const upper = Number(latest.bb_upper || 0);
+  const lower = Number(latest.bb_lower || 0);
+  if (!close || !upper || !lower || upper === lower) {
+    return { label: "밴드 데이터 부족", detail: "볼린저 상·하단 계산값이 없습니다." };
+  }
+  const position = ((close - lower) / (upper - lower)) * 100;
+  const label = position >= 90 ? "상단 과열권" : position >= 70 ? "상단 접근" : position <= 10 ? "하단 이탈권" : position <= 30 ? "하단 접근" : "중립권";
+  return {
+    label,
+    detail: `밴드 내 위치 ${position.toFixed(0)}% · 상단 ${formatNumber(upper)} · 하단 ${formatNumber(lower)}`,
+  };
+});
+
+const chartObservation = computed(() => {
+  const trend = movingAverageSummary.value.label;
+  const volume = volumeSummary.value.label;
+  const bollinger = bollingerSummary.value.label;
+  return `최신 일봉가는 ${latestPrice.value}원이며, ${trend}, ${volume}, ${bollinger}으로 해석됩니다.`;
 });
 
 const targetUpsideText = computed(() => {
@@ -466,16 +638,43 @@ const chartBounds = computed(() => {
   return { min, max: max === min ? max + 1 : max };
 });
 
+const priceAxisTicks = computed(() => {
+  const { min, max } = chartBounds.value;
+  return [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const value = max - (max - min) * ratio;
+    const y = chartTop + ratio * chartPriceHeight;
+    return {
+      value,
+      y,
+      label: formatCompactPrice(value),
+    };
+  });
+});
+
+const dateAxisTicks = computed(() => {
+  const prices = report.value?.priceSeries || [];
+  if (!prices.length) return [];
+  const indexes = Array.from(new Set([
+    0,
+    Math.floor((prices.length - 1) / 2),
+    prices.length - 1,
+  ]));
+  return indexes.map((index) => ({
+    x: chartLeft + (index / Math.max(prices.length - 1, 1)) * chartWidth,
+    label: formatChartDate(prices[index]?.date || prices[index]?.trade_date || prices[index]?.base_date),
+  }));
+});
+
 const volumeBars = computed(() => {
   const prices = report.value?.priceSeries || [];
   const maxVolume = Math.max(...prices.map((point) => point.volume), 1);
   return prices.map((point, index) => {
-    const x = 45 + (index / Math.max(prices.length - 1, 1)) * 820;
+    const x = chartLeft + (index / Math.max(prices.length - 1, 1)) * chartWidth;
     const height = (point.volume / maxVolume) * 58;
     return {
       x,
-      y: 270 - height,
-      width: Math.max(2, 780 / Math.max(prices.length, 1)),
+      y: chartBottom - height,
+      width: Math.max(2, chartWidth / Math.max(prices.length, 1)),
       height,
       fill: index > 0 && point.close_price >= prices[index - 1].close_price ? "#3b82f6" : "#fb7185",
     };
@@ -488,8 +687,8 @@ function linePoints(field) {
   return prices
     .map((point, index) => {
       const value = point[field];
-      const x = 45 + (index / Math.max(prices.length - 1, 1)) * 820;
-      const y = 255 - ((value - min) / (max - min)) * 210;
+      const x = chartLeft + (index / Math.max(prices.length - 1, 1)) * chartWidth;
+      const y = chartTop + chartPriceHeight - ((value - min) / (max - min)) * chartPriceHeight;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
@@ -497,6 +696,51 @@ function linePoints(field) {
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("ko-KR");
+}
+
+function formatCompactNumber(value) {
+  const number = Number(value || 0);
+  if (number >= 100000000) return `${(number / 100000000).toFixed(1).replace(".0", "")}억`;
+  if (number >= 10000) return `${(number / 10000).toFixed(1).replace(".0", "")}만`;
+  return formatNumber(number);
+}
+
+function formatCompactPrice(value) {
+  const number = Number(value || 0);
+  if (number >= 100000) return `${Math.round(number / 1000).toLocaleString("ko-KR")}천`;
+  return Math.round(number).toLocaleString("ko-KR");
+}
+
+function formatChartDate(value) {
+  if (!value) return "-";
+  const text = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(5, 10).replace("-", ".");
+  if (/^\d{8}$/.test(text)) return `${text.slice(4, 6)}.${text.slice(6, 8)}`;
+  return text.slice(0, 5);
+}
+
+function formatKoreanChartDate(value) {
+  if (!value) return "-";
+  const text = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+    return `${Number(text.slice(5, 7))}월 ${Number(text.slice(8, 10))}일`;
+  }
+  if (/^\d{8}$/.test(text)) {
+    return `${Number(text.slice(4, 6))}월 ${Number(text.slice(6, 8))}일`;
+  }
+  return text;
+}
+
+function signedPriceText(value) {
+  const number = Number(value || 0);
+  const sign = number > 0 ? "+" : "";
+  return `${sign}${formatNumber(number)}`;
+}
+
+function signedPercentText(value) {
+  const number = Number(value || 0);
+  const sign = number > 0 ? "+" : "";
+  return `${sign}${number.toFixed(1)}%`;
 }
 
 function clampPercent(value) {

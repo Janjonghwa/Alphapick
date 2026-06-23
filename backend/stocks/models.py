@@ -27,6 +27,53 @@ class Stock(models.Model):
         return f"{self.name} ({self.ticker})"
 
 
+class ThemeGroup(models.Model):
+    name = models.CharField(max_length=80, unique=True)
+    icon = models.CharField(max_length=12, blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=0, db_index=True)
+
+    class Meta:
+        ordering = ("sort_order", "name")
+
+    def __str__(self):
+        return self.name
+
+
+class Theme(models.Model):
+    group = models.ForeignKey(ThemeGroup, on_delete=models.CASCADE, related_name="themes")
+    name = models.CharField(max_length=80)
+    sort_order = models.PositiveSmallIntegerField(default=0, db_index=True)
+
+    class Meta:
+        ordering = ("group__sort_order", "sort_order", "name")
+        constraints = [
+            models.UniqueConstraint(fields=("group", "name"), name="unique_theme_group_name"),
+        ]
+
+    def __str__(self):
+        return f"{self.group.name} / {self.name}"
+
+
+class StockTheme(models.Model):
+    stock = models.ForeignKey(Stock, on_delete=models.CASCADE, related_name="theme_links")
+    theme = models.ForeignKey(Theme, on_delete=models.CASCADE, related_name="stock_links")
+    is_primary = models.BooleanField(default=False, db_index=True)
+    source = models.CharField(max_length=40, default="manual")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("stock_id", "theme__group__sort_order", "theme__sort_order")
+        constraints = [
+            models.UniqueConstraint(fields=("stock", "theme"), name="unique_stock_theme"),
+        ]
+        indexes = [
+            models.Index(fields=("is_primary",)),
+        ]
+
+    def __str__(self):
+        return f"{self.stock_id}:{self.theme_id}"
+
+
 class PriceDaily(models.Model):
     stock = models.ForeignKey(Stock, on_delete=models.CASCADE, related_name="prices")
     date = models.DateField(db_index=True)

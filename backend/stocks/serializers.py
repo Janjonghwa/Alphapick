@@ -1,10 +1,15 @@
 from rest_framework import serializers
 
-from .models import AICommentCache, FinancialMetric, PortfolioItem, PortfolioRun, PriceDaily, ScoreSnapshot, Stock
+from .models import AICommentCache, FinancialMetric, PortfolioItem, PortfolioRun, PriceDaily, ScoreSnapshot, Stock, Theme, ThemeGroup
 from .services import PORTFOLIO_THRESHOLD, watch_candidates
 
 
 class StockSummarySerializer(serializers.ModelSerializer):
+    sector = serializers.SerializerMethodField()
+    original_sector = serializers.CharField(source="sector")
+    primary_theme = serializers.SerializerMethodField()
+    themes = serializers.SerializerMethodField()
+    theme_groups = serializers.SerializerMethodField()
     latest_score = serializers.SerializerMethodField()
     current_price = serializers.SerializerMethodField()
     reason = serializers.SerializerMethodField()
@@ -22,8 +27,11 @@ class StockSummarySerializer(serializers.ModelSerializer):
             "name",
             "market",
             "sector",
+            "original_sector",
             "industry",
             "primary_theme",
+            "themes",
+            "theme_groups",
             "is_universe_included",
             "low_liquidity_flag",
             "latest_score",
@@ -36,6 +44,39 @@ class StockSummarySerializer(serializers.ModelSerializer):
             "volume_surge_flag",
             "fail_safe_flag",
         )
+
+    def get_theme_links(self, obj):
+        links = getattr(obj, "_prefetched_objects_cache", {}).get("theme_links")
+        if links is None:
+            links = obj.theme_links.select_related("theme__group").all()
+        return list(links)
+
+    def get_primary_theme_link(self, obj):
+        links = self.get_theme_links(obj)
+        primary = next((link for link in links if link.is_primary), None)
+        return primary or (links[0] if links else None)
+
+    def get_sector(self, obj):
+        primary = self.get_primary_theme_link(obj)
+        return primary.theme.group.name if primary else obj.sector
+
+    def get_primary_theme(self, obj):
+        primary = self.get_primary_theme_link(obj)
+        return primary.theme.name if primary else obj.primary_theme
+
+    def get_themes(self, obj):
+        names = []
+        for link in self.get_theme_links(obj):
+            if link.theme.name not in names:
+                names.append(link.theme.name)
+        return names
+
+    def get_theme_groups(self, obj):
+        names = []
+        for link in self.get_theme_links(obj):
+            if link.theme.group.name not in names:
+                names.append(link.theme.group.name)
+        return names
 
     def get_latest_score(self, obj):
         score = getattr(obj, "prefetched_latest_score", None) or obj.scores.first()
@@ -75,6 +116,23 @@ class StockSummarySerializer(serializers.ModelSerializer):
     def get_fail_safe_flag(self, obj):
         score = getattr(obj, "prefetched_latest_score", None) or obj.scores.first()
         return score.fail_safe_flag if score else False
+
+
+class ThemeSerializer(serializers.ModelSerializer):
+    stock_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Theme
+        fields = ("id", "name", "stock_count")
+
+
+class ThemeGroupSerializer(serializers.ModelSerializer):
+    themes = ThemeSerializer(many=True, read_only=True)
+    stock_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = ThemeGroup
+        fields = ("id", "name", "icon", "stock_count", "themes")
 
 
 class PriceDailySerializer(serializers.ModelSerializer):
@@ -162,8 +220,10 @@ class PortfolioItemSerializer(serializers.ModelSerializer):
     ticker = serializers.CharField(source="stock.ticker")
     name = serializers.CharField(source="stock.name")
     market = serializers.CharField(source="stock.market")
-    sector = serializers.CharField(source="stock.sector")
-    primary_theme = serializers.CharField(source="stock.primary_theme")
+    sector = serializers.SerializerMethodField()
+    original_sector = serializers.CharField(source="stock.sector")
+    primary_theme = serializers.SerializerMethodField()
+    themes = serializers.SerializerMethodField()
     low_liquidity_flag = serializers.BooleanField(source="stock.low_liquidity_flag")
     total_score = serializers.FloatField(source="score_snapshot.total_score")
     company_score = serializers.FloatField(source="score_snapshot.company_score")
@@ -187,7 +247,9 @@ class PortfolioItemSerializer(serializers.ModelSerializer):
             "name",
             "market",
             "sector",
+            "original_sector",
             "primary_theme",
+            "themes",
             "low_liquidity_flag",
             "total_score",
             "company_score",
@@ -207,6 +269,18 @@ class PortfolioItemSerializer(serializers.ModelSerializer):
             "reason",
             "warning",
         )
+
+    def get_stock_summary(self, obj):
+        return StockSummarySerializer(obj.stock)
+
+    def get_sector(self, obj):
+        return self.get_stock_summary(obj).get_sector(obj.stock)
+
+    def get_primary_theme(self, obj):
+        return self.get_stock_summary(obj).get_primary_theme(obj.stock)
+
+    def get_themes(self, obj):
+        return self.get_stock_summary(obj).get_themes(obj.stock)
 
 
 class PortfolioSerializer(serializers.ModelSerializer):

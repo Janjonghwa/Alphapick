@@ -5,8 +5,6 @@
       <div v-else-if="error" class="panel border-red-200 bg-red-50 p-8 text-red-700">{{ error }}</div>
 
       <template v-else>
-        <MarketStrip />
-
         <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
             <div class="flex flex-wrap items-center gap-2">
@@ -44,13 +42,24 @@
             </div>
 
             <div v-if="topPortfolioItems.length" class="overflow-x-auto">
-              <table class="w-full min-w-[760px] text-left">
+              <table class="w-full min-w-[1180px] table-fixed text-left">
+                <colgroup>
+                  <col class="w-[64px]" />
+                  <col class="w-[160px]" />
+                  <col class="w-[120px]" />
+                  <col class="w-[150px]" />
+                  <col class="w-[260px]" />
+                  <col class="w-[90px]" />
+                  <col class="w-[100px]" />
+                  <col />
+                </colgroup>
                 <thead class="bg-gradient-to-b from-slate-50 to-white text-xs font-bold text-slate-500">
                   <tr>
                     <th class="px-5 py-3">순위</th>
                     <th class="px-4 py-3">종목명</th>
                     <th class="px-4 py-3">종목코드</th>
                     <th class="px-4 py-3">섹터</th>
+                    <th class="px-4 py-3">테마</th>
                     <th class="px-4 py-3">종합 점수</th>
                     <th class="px-4 py-3">추천 비중</th>
                     <th class="px-5 py-3">핵심 추천 사유</th>
@@ -60,26 +69,40 @@
                   <tr v-for="(item, index) in topPortfolioItems" :key="item.ticker" class="transition hover:bg-[#f7fcfb]">
                     <td class="px-5 py-4 font-bold text-[#172033]">{{ index + 1 }}</td>
                     <td class="px-4 py-4">
-                      <RouterLink class="font-bold text-[#172033] hover:text-[#009e8e]" :to="{ name: 'stock-report', params: { ticker: item.ticker } }">
+                      <RouterLink class="whitespace-nowrap font-bold text-[#172033] hover:text-[#009e8e]" :to="{ name: 'stock-report', params: { ticker: item.ticker } }">
                         {{ item.name }}
                       </RouterLink>
-                      <div class="mt-1 flex flex-wrap gap-1">
-                        <span v-if="item.sector_cap_applied" class="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">섹터 조정</span>
-                        <span v-if="item.volume_surge_flag" class="rounded bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">거래량</span>
-                      </div>
                     </td>
                     <td class="px-4 py-4 font-bold text-slate-600">{{ item.ticker }}</td>
                     <td class="px-4 py-4 font-bold text-slate-600">{{ item.sector || "-" }}</td>
                     <td class="px-4 py-4">
-                      <span class="rounded-md bg-[#12b8a6] px-3 py-1 text-sm font-bold text-white">{{ formatScore(item.total_score) }}</span>
+                      <div class="flex flex-wrap gap-1">
+                        <span
+                          v-for="theme in itemThemes(item)"
+                          :key="`${item.ticker}-${theme}`"
+                          class="rounded bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700"
+                        >
+                          {{ theme }}
+                        </span>
+                        <span v-if="!itemThemes(item).length" class="font-bold text-slate-400">-</span>
+                      </div>
                     </td>
                     <td class="px-4 py-4">
-                      <div class="flex min-w-36 items-center gap-3">
-                        <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                          <div class="h-full rounded-full bg-[#12b8a6]" :style="{ width: `${Math.min(Number(item.weight || 0), 100)}%` }"></div>
-                        </div>
-                        <span class="w-12 text-right font-bold text-[#172033]">{{ formatPercent(item.weight) }}%</span>
+                      <div class="inline-flex min-w-14 flex-col items-start gap-1">
+                        <span class="text-sm font-extrabold leading-none" :class="scoreTextClass(item.total_score)">
+                          {{ formatScore(item.total_score) }}
+                        </span>
+                        <span class="h-0.5 w-full overflow-hidden rounded-full bg-slate-200">
+                          <span
+                            class="block h-full rounded-full"
+                            :class="scoreLineClass(item.total_score)"
+                            :style="{ width: `${scorePercent(item.total_score)}%` }"
+                          ></span>
+                        </span>
                       </div>
+                    </td>
+                    <td class="px-4 py-4 font-bold text-[#172033]">
+                      {{ formatPercent(item.weight) }}%
                     </td>
                     <td class="px-5 py-4 font-bold leading-6 text-slate-600">{{ item.key_reason || item.reason || "-" }}</td>
                   </tr>
@@ -107,7 +130,6 @@ import {
 } from "@lucide/vue";
 
 import { api } from "../api/client";
-import MarketStrip from "../components/MarketStrip.vue";
 
 const portfolio = ref({});
 const loading = ref(true);
@@ -148,6 +170,28 @@ function formatScore(value) {
 function formatPercent(value) {
   const numberValue = Number(value || 0);
   return Number.isInteger(numberValue) ? String(numberValue) : numberValue.toFixed(1);
+}
+
+function scoreTextClass(value) {
+  const score = Number(value || 0);
+  if (score >= 70) return "text-[#009e8e]";
+  if (score >= 50) return "text-amber-600";
+  return "text-rose-600";
+}
+
+function scoreLineClass(value) {
+  const score = Number(value || 0);
+  if (score >= 70) return "bg-[#12b8a6]";
+  if (score >= 50) return "bg-amber-500";
+  return "bg-rose-500";
+}
+
+function scorePercent(value) {
+  return Math.min(Math.max(Number(value || 0), 0), 100);
+}
+
+function itemThemes(item) {
+  return item.themes?.length ? item.themes : [item.primary_theme].filter(Boolean);
 }
 
 onMounted(loadDashboard);

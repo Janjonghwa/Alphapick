@@ -5,9 +5,10 @@
 ```powershell
 cd backend
 .\.venv\Scripts\python.exe manage.py check
-.\.venv\Scripts\python.exe makemigrations --check --dry-run
+.\.venv\Scripts\python.exe manage.py makemigrations --check --dry-run
 .\.venv\Scripts\python.exe manage.py migrate
 .\.venv\Scripts\python.exe manage.py seed_alphapick --flush
+.\.venv\Scripts\python.exe manage.py seed_themes --source "C:\path\to\domestic-themes.txt" --clear
 .\.venv\Scripts\python.exe manage.py test stocks
 
 cd ..\frontend
@@ -33,6 +34,14 @@ GET /api/stocks/
 - 상태 코드 200
 - 종목 코드 중복 없음
 
+GET /api/themes/
+- 상태 코드 200
+- 섹터 그룹, 2차 테마, 테마별 종목 수 포함
+
+GET /api/stocks/?theme=대형%20조선
+- 상태 코드 200
+- 선택한 2차 테마에 해당하는 종목만 반환
+
 GET /api/stocks/{ticker}/report/
 - 상태 코드 200
 - 가격 시계열, 점수 카드, 기술 지표, 재무 지표, 뉴스/공시 데이터 포함
@@ -49,7 +58,7 @@ POST /api/stocks/{ticker}/ai-comment/
 - `/portfolio`: 오늘의 포트폴리오 편입 종목 전체가 표시된다.
 - 사이드바에 백테스트 메뉴가 표시되지 않는다.
 - 기본 대시보드에 백테스트 요약 영역이 표시되지 않는다.
-- `/stocks`: 종목 검색 화면이 표시된다.
+- `/stocks`: 종목 검색 화면이 표시되고 좌측 섹터·테마 패널로 목록이 필터링된다.
 - `/stocks/{ticker}`: 종목 리포트가 표시된다.
 
 ## 발표 전 확인 사항

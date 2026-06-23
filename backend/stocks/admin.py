@@ -1,6 +1,18 @@
 from django.contrib import admin
 
-from .models import AICommentCache, FinancialMetric, PortfolioItem, PortfolioRun, PriceDaily, ScoreSnapshot, Stock, Watchlist
+from .models import (
+    AICommentCache,
+    FinancialMetric,
+    PortfolioItem,
+    PortfolioRun,
+    PriceDaily,
+    ScoreSnapshot,
+    Stock,
+    StockTheme,
+    Theme,
+    ThemeGroup,
+    Watchlist,
+)
 
 
 @admin.register(Stock)
@@ -25,5 +37,8 @@ class PortfolioRunAdmin(admin.ModelAdmin):
 admin.site.register(PriceDaily)
 admin.site.register(FinancialMetric)
 admin.site.register(PortfolioItem)
+admin.site.register(ThemeGroup)
+admin.site.register(Theme)
+admin.site.register(StockTheme)
 admin.site.register(Watchlist)
 admin.site.register(AICommentCache)

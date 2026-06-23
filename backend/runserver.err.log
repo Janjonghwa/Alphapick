@@ -116,3 +116,12 @@ Watching for file changes with StatReloader
 [22/Jun/2026 12:27:10] "GET /api/stocks/034730.KS/report/ HTTP/1.1" 200 77641
 [22/Jun/2026 12:27:16] "GET /api/portfolio/today/?risk_type=neutral HTTP/1.1" 200 32625
 [22/Jun/2026 12:27:16] "GET /api/market/macro/ HTTP/1.1" 200 1142
+[22/Jun/2026 12:34:13] "GET /api/stocks/?page=1 HTTP/1.1" 200 12626
+[22/Jun/2026 12:34:14] "GET /api/portfolio/today/?risk_type=neutral HTTP/1.1" 200 32625
+[22/Jun/2026 12:34:15] "GET /api/portfolio/today/?risk_type=neutral HTTP/1.1" 200 32625
+[22/Jun/2026 12:34:15] "GET /api/portfolio/today/?risk_type=neutral HTTP/1.1" 200 32625
+[22/Jun/2026 12:34:15] "GET /api/market/macro/ HTTP/1.1" 200 1142
+[22/Jun/2026 12:34:16] "GET /api/community/users/ HTTP/1.1" 200 727
+[22/Jun/2026 12:34:16] "GET /api/community/posts/ HTTP/1.1" 200 2142
+[22/Jun/2026 12:34:20] "GET /api/portfolio/today/?risk_type=neutral HTTP/1.1" 200 32625
+[22/Jun/2026 12:34:20] "GET /api/market/macro/ HTTP/1.1" 200 1142

@@ -260,17 +260,20 @@ def resolve_tickers(options):
 
     if options["tickers_file"]:
         rows = []
-        frame = pd.read_csv(options["tickers_file"], encoding="utf-8-sig")
+        frame = pd.read_csv(options["tickers_file"], encoding="utf-8-sig", dtype=str).fillna("")
         for _, row in frame.iterrows():
-            ticker = str(row.get("ticker") or row.get("종목코드") or row.get("code") or "").zfill(6)
+            ticker = str(row.get("ticker") or row.get("종목코드") or row.get("code") or "").strip().zfill(6)
             if not ticker or ticker == "000nan":
                 continue
+            name = str(row.get("name") or row.get("회사명") or ticker).strip()
+            if name.zfill(6) == ticker:
+                name = ticker
             rows.append(
                 TickerMeta(
                     ticker=ticker,
-                    name=str(row.get("name") or row.get("회사명") or ticker),
-                    sector=str(row.get("sector") or row.get("업종") or options["market"]),
-                    industry=str(row.get("industry") or row.get("주요제품") or ""),
+                    name=name,
+                    sector=str(row.get("sector") or row.get("업종") or options["market"]).strip(),
+                    industry=str(row.get("industry") or row.get("주요제품") or "").strip(),
                 )
             )
         return rows
