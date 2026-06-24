@@ -12,6 +12,11 @@ htmlcov/
 .tmp_final_prd_preview/
 .tmp_pdf_review/
 backend/.cache/
+backend/logs/
+backend/*-server.out.log
+backend/*-server.err.log
+frontend/*-vite.out.log
+frontend/*-vite.err.log
 
 node_modules/
 dist/

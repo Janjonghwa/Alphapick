@@ -668,15 +668,34 @@ class Command(BaseCommand):
         fundamentals = item.metrics.get("fundamentals") or {}
         target_price = fundamentals.get("target_price")
         current_price = int(item.metrics["current_price"])
+        stock_ticker = f"{item.meta.ticker}.KS" if market == "KOSPI" else f"{item.meta.ticker}.KQ"
+        previous_financial = FinancialMetric.objects.filter(stock_id=stock_ticker).order_by("-base_date").first()
+
+        # The daily job skips the slow CompanyGuide crawl. Preserve the last
+        # verified fundamental values instead of replacing them with nulls.
+        def fundamental_value(key):
+            value = fundamentals.get(key)
+            if value is not None:
+                return value
+            return getattr(previous_financial, key, None) if previous_financial else None
+
+        target_price = fundamental_value("target_price")
         target_upside = None
         if target_price and current_price:
             target_upside = round((target_price - current_price) / current_price * 100, 1)
         consensus_count = fundamentals.get("consensus_count") or 0
         confidence = "HIGH" if consensus_count >= 3 else "MID" if consensus_count >= 1 else "LOW"
+        if fundamentals.get("consensus_count") is None and previous_financial:
+            consensus_count = (previous_financial.payload or {}).get("consensus_count") or 0
+            confidence = "HIGH" if consensus_count >= 3 else "MID" if consensus_count >= 1 else "LOW"
         consensus_label = fundamentals.get("consensus_label") or "컨센서스 없음"
 
+        consensus_label = fundamentals.get("consensus_label") or (
+            (previous_financial.payload or {}).get("consensus_label") if previous_financial else None
+        ) or "컨센서스 없음"
+
         stock_obj, _ = Stock.objects.update_or_create(
-            ticker=f"{item.meta.ticker}.KS" if market == "KOSPI" else f"{item.meta.ticker}.KQ",
+            ticker=stock_ticker,
             defaults={
                 "name": item.meta.name,
                 "market": market,
@@ -716,13 +735,13 @@ class Command(BaseCommand):
             stock=stock_obj,
             base_date=base_date,
             defaults={
-                "per": fundamentals.get("per"),
-                "pbr": fundamentals.get("pbr"),
-                "roe": fundamentals.get("roe"),
+                "per": fundamental_value("per"),
+                "pbr": fundamental_value("pbr"),
+                "roe": fundamental_value("roe"),
                 "eps_growth": score["eps_acceleration"],
-                "operating_margin": fundamentals.get("operating_margin"),
-                "debt_ratio": fundamentals.get("debt_ratio"),
-                "dividend_yield": fundamentals.get("dividend_yield"),
+                "operating_margin": fundamental_value("operating_margin"),
+                "debt_ratio": fundamental_value("debt_ratio"),
+                "dividend_yield": fundamental_value("dividend_yield"),
                 "market_cap": None,
                 "target_price": target_price,
                 "current_price": current_price,
@@ -730,10 +749,11 @@ class Command(BaseCommand):
                     "source": "pykrx_ohlcv + naver_companyguide",
                     "avg_trading_value_20": round(item.metrics["avg_trading_value_20"], 0),
                     "fundamental_status": "PER/PBR/ROE/목표가는 네이버 금융과 FnGuide 기업정보에서 보강했습니다.",
-                    "eps": fundamentals.get("eps"),
-                    "bps": fundamentals.get("bps"),
-                    "consensus_score": fundamentals.get("consensus_score"),
-                    "consensus_count": fundamentals.get("consensus_count"),
+                    "eps": fundamental_value("eps"),
+                    "bps": fundamental_value("bps"),
+                    "consensus_score": fundamentals.get("consensus_score") or ((previous_financial.payload or {}).get("consensus_score") if previous_financial else None),
+                    "consensus_count": consensus_count,
+                    "consensus_label": consensus_label,
                     "fundamental_source": fundamentals.get("source") or "네이버 금융/FnGuide",
                 },
             },
