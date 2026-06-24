@@ -48,6 +48,8 @@ class StockViewSet(viewsets.ReadOnlyModelViewSet):
         min_score = self.request.query_params.get("min_score")
         theme = self.request.query_params.get("theme")
         theme_group = self.request.query_params.get("theme_group")
+        sort = self.request.query_params.get("sort", "composite")
+        direction = self.request.query_params.get("direction", "desc")
 
         if query:
             queryset = queryset.filter(Q(name__icontains=query) | Q(ticker__icontains=query))
@@ -62,7 +64,16 @@ class StockViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = queryset.filter(scores__base_date=F("latest_score_date"))
         if min_score:
             queryset = queryset.filter(scores__total_score__gte=float(min_score)).distinct()
-        return queryset.order_by("-scores__total_score", "name").distinct()
+        sort_fields = {
+            "composite": "total_score",
+            "company": "company_score",
+            "market": "market_validation_score",
+            "timing": "timing_score",
+            "valuation": "valuation_adjustment",
+        }
+        field = sort_fields.get(sort, "total_score")
+        prefix = "" if direction == "asc" else "-"
+        return queryset.order_by(f"{prefix}scores__{field}", "name").distinct()
 
     @action(detail=True, methods=["get"], url_path="report")
     def report(self, request, ticker=None):
@@ -74,6 +85,28 @@ class StockViewSet(viewsets.ReadOnlyModelViewSet):
         stock = self.get_object()
         prices = stock.prices.order_by("-date")[: int(request.query_params.get("limit", PRICE_HISTORY_DAYS))]
         return Response(PriceDailySerializer(reversed(list(prices)), many=True).data)
+
+    @action(detail=True, methods=["get"], url_path="news")
+    def news(self, request, ticker=None):
+        """Return the latest stored Naver news and OpenDART disclosures.
+
+        Collection runs in the batch command so opening a report never blocks
+        on external APIs. The optional refresh query remains UI-compatible and
+        simply returns the freshest data currently stored by that batch.
+        """
+        stock = self.get_object()
+        snapshot = stock.scores.order_by("-base_date").first()
+        if snapshot is None:
+            return Response({"news": [], "disclosures": [], "newsSentiment": None, "baseDate": None})
+        area_scores = snapshot.area_scores if isinstance(snapshot.area_scores, dict) else {}
+        return Response(
+            {
+                "news": snapshot.news or [],
+                "disclosures": snapshot.disclosures or [],
+                "newsSentiment": area_scores.get("newsSentiment"),
+                "baseDate": snapshot.base_date.isoformat(),
+            }
+        )
 
     @action(detail=True, methods=["post"], url_path="ai-comment")
     def ai_comment(self, request, ticker=None):
