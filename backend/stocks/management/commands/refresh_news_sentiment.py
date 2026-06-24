@@ -41,6 +41,16 @@ POSITIVE_KEYWORDS = {
     "호조",
     "돌파",
     "신고가",
+    "상승",
+    "급등",
+    "강세",
+    "반등",
+    "수혜",
+    "개선",
+    "성장",
+    "최대치",
+    "최고",
+    "기대",
 }
 NEGATIVE_KEYWORDS = {
     "적자",
@@ -57,6 +67,15 @@ NEGATIVE_KEYWORDS = {
     "리콜",
     "불성실",
     "부진",
+    "우려",
+    "약세",
+    "하락세",
+    "손실",
+    "위기",
+    "둔화",
+    "악재",
+    "경고",
+    "감소",
 }
 
 
@@ -121,17 +140,31 @@ class Command(BaseCommand):
                 continue
 
             if analyzed or disclosures or options["force"]:
-                scoring_disclosures = [item for item in disclosures if self.should_score_disclosure(item, options["days"])]
-                aggregate = self.aggregate_sentiment([*analyzed, *scoring_disclosures])
+                aggregate = self.aggregate_sentiment(analyzed)
                 score.news = [self.serialize_article(item) for item in analyzed[:30]]
-                score.disclosures = [self.serialize_article(item) for item in disclosures[:100]]
-                score.sentiment_score = aggregate["score"]
+                score.disclosures = [self.serialize_article(item) for item in self.compact_disclosures(disclosures)[:100]]
+                
+                if not isinstance(score.area_scores, dict):
+                    score.area_scores = {}
+                score.area_scores["newsSentiment"] = aggregate["score"]
+                
+                # Recalculate total_score incorporating news sentiment (10% weight)
+                if aggregate["score"] is not None:
+                    base_total = score.company_score * 0.45 + score.timing_score * 0.55
+                    if base_total > 0:
+                        discount_factor = score.total_score / base_total
+                    else:
+                        discount_factor = 1.0
+                    new_base_total = base_total * 0.90 + aggregate["score"] * 0.10
+                    score.total_score = max(0.0, min(100.0, round(new_base_total * discount_factor, 1)))
+                
                 score.scoring_log = self.replace_log_entry(score.scoring_log, aggregate)
-                score.save(update_fields=["news", "disclosures", "sentiment_score", "scoring_log"])
+                score.save(update_fields=["news", "disclosures", "area_scores", "total_score", "scoring_log"])
                 updated += 1
 
+            ns_display = f"{aggregate['score']:.1f}" if (aggregate["score"] is not None) else "None"
             self.stdout.write(
-                f"{stock.ticker} {stock.name}: 뉴스 {len(analyzed)}건, 공시 {len(disclosures)}건, 감성 {score.sentiment_score:.1f}"
+                f"{stock.ticker} {stock.name}: 뉴스 {len(analyzed)}건, 공시 {len(disclosures)}건, 감성 {ns_display}"
             )
             if options["sleep"] > 0:
                 time.sleep(options["sleep"])
@@ -459,7 +492,7 @@ class Command(BaseCommand):
         if not articles:
             return {
                 "type": "news_sentiment",
-                "score": 50.0,
+                "score": None,
                 "label": "중립",
                 "positive": 0,
                 "neutral": 0,
@@ -468,9 +501,12 @@ class Command(BaseCommand):
                 "reason": "최근 수집된 종목 관련 뉴스가 없습니다.",
                 "updated_at": timezone.now().isoformat(),
             }
-        weighted_scores = []
         counts = {"positive": 0, "neutral": 0, "negative": 0}
         now = timezone.now()
+        
+        active_weighted_scores = []
+        active_weights = []
+        
         for item in articles:
             counts[item["sentiment"]] += 1
             freshness = self.freshness_weight(item.get("published_at"), now)
@@ -487,20 +523,52 @@ class Command(BaseCommand):
                 * scope
                 * confirmation
             )
-            weighted_scores.append(score)
             item["article_score"] = round(score, 4)
-        raw = sum(weighted_scores)
-        normalized = max(-1, min(1, raw))
-        score_100 = round((normalized + 1) * 50, 1)
+            
+            if item["sentiment"] in {"positive", "negative"}:
+                weight = (
+                    item["impact_score"]
+                    * item["relevance_score"]
+                    * item["confidence"]
+                    * freshness
+                    * source
+                    * scope
+                    * confirmation
+                )
+                active_weighted_scores.append(item["sentiment_score"] * weight)
+                active_weights.append(weight)
+
+        sum_active_weights = sum(active_weights)
+        if sum_active_weights > 0:
+            raw_avg = sum(active_weighted_scores) / sum_active_weights
+        else:
+            raw_avg = 0.0
+            
+        # Non-linear damping to prevent neutral news from heavily diluting active signals,
+        # while still accounting for sample size confidence.
+        active_ratio = len(active_weights) / len(articles)
+        damping_ratio = active_ratio ** 0.4  # Slower decay to preserve active sentiment
+        damping_size = 1.0 - math.exp(-len(active_weights) / 2.0)  # Confidence based on count
+        damping_factor = damping_ratio * damping_size
+        final_raw_avg = raw_avg * damping_factor
+        
+        score_100 = round((final_raw_avg + 1) * 50, 1)
+        
+        if score_100 >= 55.0:
+            label = "긍정"
+        elif score_100 <= 45.0:
+            label = "부정"
+        else:
+            label = "중립"
+            
         confidence = round(sum(item["confidence"] for item in articles) / len(articles), 2)
-        winner = max(counts, key=counts.get)
         return {
             "type": "news_sentiment",
             "score": score_100,
-            "label": {"positive": "긍정", "neutral": "중립", "negative": "부정"}[winner],
+            "label": label,
             **counts,
             "confidence": confidence,
-            "reason": f"최근 뉴스 {len(articles)}건을 분석해 긍정 {counts['positive']}건, 중립 {counts['neutral']}건, 부정 {counts['negative']}건으로 집계했습니다.",
+            "reason": f"최근 뉴스/공시 {len(articles)}건 중 긍정 {counts['positive']}건, 중립 {counts['neutral']}건, 부정 {counts['negative']}건을 감안하여 활성 심리 감도({len(active_weights)}건) 기준 종합 {score_100:.1f}점({label})으로 평가했습니다.",
             "updated_at": timezone.now().isoformat(),
         }
 
@@ -528,6 +596,37 @@ class Command(BaseCommand):
             "reason": item["reason"],
             "keyFact": item.get("key_fact", ""),
         }
+
+    def compact_disclosures(self, rows):
+        kept = []
+        seen = set()
+        for item in rows:
+            key = (item.get("published_at").date() if item.get("published_at") else None, self.compact_disclosure_title(item["title"]))
+            if key in seen:
+                continue
+            seen.add(key)
+            kept.append(item)
+        return sorted(kept, key=lambda item: (self.disclosure_priority(item), self.disclosure_sort_date(item)), reverse=True)
+
+    def compact_disclosure_title(self, title):
+        if "임원" in title and "주요주주" in title:
+            return "임원ㆍ주요주주특정증권등소유상황보고서"
+        if "파생상품시장 안내" in title:
+            return "파생상품시장 안내"
+        return " ".join(str(title).split())
+
+    def disclosure_priority(self, item):
+        category = item.get("category")
+        if category == "거래소 안내":
+            return 3
+        if category in {"실적", "배당", "증자·감자", "자기주식", "계약·수주", "합병·분할", "소송·규제"}:
+            return 2
+        if category == "최대주주·지분":
+            return 0
+        return 1
+
+    def disclosure_sort_date(self, item):
+        return item.get("published_at") or (timezone.now() - timedelta(days=36500))
 
     def replace_log_entry(self, log, aggregate):
         rows = [
