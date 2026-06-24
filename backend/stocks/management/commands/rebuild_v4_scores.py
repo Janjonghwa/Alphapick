@@ -126,7 +126,7 @@ class Command(BaseCommand):
                     "title": "매수 타이밍 T",
                     "score": result["timing"],
                     "description": "지금 진입하기 적절한 가격 흐름과 수급인지 평가합니다.",
-                    "calculation": "EMA 추세 30% + 수급 25% + 돌파 품질 25% + 진입 품질 20%, 과열·시장 약세 할인",
+                    "calculation": "EMA 추세 30% + 수급 25% + 돌파 품질 25% + 진입 품질 20%, 과열 할인 (시장 국면에 따른 동적 진입 기준 적용)",
                     "score_impact": "종합 점수 기하평균에서 35% 비중을 가지며, 매수·관망 신호의 핵심입니다.",
                     "interpretation": "높을수록 추세·수급·돌파가 양호하고 단기 과열 위험이 낮습니다.",
                 },

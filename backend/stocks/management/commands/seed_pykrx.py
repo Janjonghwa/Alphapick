@@ -404,6 +404,7 @@ def collect_metrics(frame, min_trading_value):
     avg_trading_value_20 = float((close * volume).tail(20).mean())
     avg_volume_20 = float(volume.tail(20).mean()) or 1
     volume_ratio = float(volume.iloc[-1] / avg_volume_20)
+    no_recent_volume = float(volume.tail(10).sum()) == 0
     z_std = close.tail(20).std()
     z_score = float((current_price - close.tail(20).mean()) / z_std) if z_std else 0
     drawdown = (close / close.cummax() - 1).min() * 100
@@ -434,6 +435,7 @@ def collect_metrics(frame, min_trading_value):
         "above_ema200": current_price >= float(frame["ema200"].iloc[-1]) if not pd.isna(frame["ema200"].iloc[-1]) else False,
         "is_new_high": distance_to_high <= 3.0,
         "low_liquidity": avg_trading_value_20 < min_trading_value,
+        "is_tradable": not no_recent_volume,
         "history_len": len(frame),
     }
 
@@ -528,7 +530,7 @@ def score_stock(collected, rs_rank, market_direction):
         total *= 0.9
         log.append("데이터 신뢰도가 70점 미만이라 최종 점수를 낮췄습니다.")
 
-    fail_safe = metrics["history_len"] < 120 or reliability < 55
+    fail_safe = metrics["history_len"] < 120 or reliability < 55 or not metrics["is_tradable"]
     if fail_safe:
         total = min(total, 55)
         log.append("가격 이력 또는 신뢰도가 부족해 Fail-safe 상한을 적용했습니다.")
@@ -543,11 +545,11 @@ def score_stock(collected, rs_rank, market_direction):
         key_reasons.append("3개월 모멘텀")
     if metrics["volume_surge"]:
         key_reasons.append("거래량 급증")
-    if not key_reasons:
-        key_reasons.append("1년 가격 데이터 유효")
 
     warning = ""
-    if metrics["z_score"] > 2:
+    if not metrics["is_tradable"]:
+        warning = "최근 거래량이 없어 거래 가능 여부 확인이 필요합니다."
+    elif metrics["z_score"] > 2:
         warning = "단기 과열 구간이라 추격 매수에 주의해야 합니다."
     elif metrics["low_liquidity"]:
         warning = "평균 거래대금이 기준보다 낮아 유동성에 주의해야 합니다."
@@ -574,7 +576,7 @@ def score_stock(collected, rs_rank, market_direction):
         "key_reason": " · ".join(key_reasons),
         "headline": f"{collected.meta.name}: 실제 KOSPI 1년 가격 데이터 기준 종합 {total:.1f}점",
         "verdict": "추천 후보" if total >= 70 and not fail_safe and not metrics["low_liquidity"] else "관찰 후보",
-        "reason": "실제 KOSPI 일봉 데이터를 바탕으로 모멘텀, 신고가/피벗, 거래량 수급, 리스크 제어를 종합 평가했습니다.",
+        "reason": "",
         "warning": warning,
         "scoring_log": log,
         "rs_rank": rs_rank,
@@ -705,7 +707,7 @@ class Command(BaseCommand):
                 "is_universe_included": True,
                 "low_liquidity_flag": item.metrics["low_liquidity"],
                 "is_active": True,
-                "is_tradable": True,
+                "is_tradable": item.metrics["is_tradable"],
             },
         )
 

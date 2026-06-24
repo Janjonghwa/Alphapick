@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.management import call_command
-from django.db.models import Count, F, OuterRef, Prefetch, Q, Subquery
+from django.db.models import Case, Count, F, IntegerField, OuterRef, Prefetch, Q, Subquery, Value, When
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -66,6 +66,13 @@ class StockViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = queryset.filter(scores__base_date=F("latest_score_date"))
         if min_score:
             queryset = queryset.filter(scores__total_score__gte=float(min_score)).distinct()
+        queryset = queryset.annotate(
+            is_zero_score=Case(
+                When(scores__total_score=0, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            )
+        )
         sort_fields = {
             "composite": "total_score",
             "company": "company_score",
@@ -75,7 +82,7 @@ class StockViewSet(viewsets.ReadOnlyModelViewSet):
         }
         field = sort_fields.get(sort, "total_score")
         prefix = "" if direction == "asc" else "-"
-        return queryset.order_by(f"{prefix}scores__{field}", "name").distinct()
+        return queryset.order_by("is_zero_score", f"{prefix}scores__{field}", "name").distinct()
 
     @action(detail=True, methods=["get"], url_path="report")
     def report(self, request, ticker=None):

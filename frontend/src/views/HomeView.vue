@@ -91,9 +91,9 @@
                   <col class="w-[150px]" />
                   <col class="w-[260px]" />
                   <col class="w-[100px]" />
-                  <col class="w-[82px]" />
-                  <col class="w-[82px]" />
-                  <col class="w-[90px]" />
+                  <col class="w-[96px]" />
+                  <col class="w-[96px]" />
+                  <col class="w-[110px]" />
                   <col />
                 </colgroup>
                 <thead class="bg-gradient-to-b from-slate-50 to-white text-xs font-bold text-slate-500">
@@ -103,10 +103,18 @@
                     <th class="px-4 py-3 break-keep text-balance">종목코드</th>
                     <th class="px-4 py-3 break-keep text-balance">섹터</th>
                     <th class="px-4 py-3 break-keep text-balance">테마</th>
-                    <th class="px-4 py-3 break-keep text-balance">종합 점수</th>
-                    <th class="px-3 py-3 break-keep text-balance">회사 Q</th>
-                    <th class="px-3 py-3 break-keep text-balance">시장 M</th>
-                    <th class="px-3 py-3 break-keep text-balance">타이밍 T</th>
+                    <th class="px-4 py-3 break-keep text-balance">
+                      <button type="button" class="whitespace-nowrap font-bold transition hover:text-slate-950" :class="sortHeaderClass('composite')" @click="toggleSort('composite')">종합 점수 {{ sortArrow('composite') }}</button>
+                    </th>
+                    <th class="px-3 py-3 break-keep text-balance">
+                      <button type="button" class="whitespace-nowrap font-bold transition hover:text-slate-950" :class="sortHeaderClass('company')" @click="toggleSort('company')">회사 품질 {{ sortArrow('company') }}</button>
+                    </th>
+                    <th class="px-3 py-3 break-keep text-balance">
+                      <button type="button" class="whitespace-nowrap font-bold transition hover:text-slate-950" :class="sortHeaderClass('market')" @click="toggleSort('market')">시장 검증 {{ sortArrow('market') }}</button>
+                    </th>
+                    <th class="px-3 py-3 break-keep text-balance">
+                      <button type="button" class="whitespace-nowrap font-bold transition hover:text-slate-950" :class="sortHeaderClass('timing')" @click="toggleSort('timing')">매수 타이밍 {{ sortArrow('timing') }}</button>
+                    </th>
                     <th class="px-5 py-3 break-keep text-balance">핵심 사유</th>
                   </tr>
                 </thead>
@@ -172,7 +180,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "v
 
 import { api } from "../api/client";
 
-const filters = reactive({ q: "", min_score: "", sort: "composite", theme_group: "", theme: "" });
+const filters = reactive({ q: "", min_score: "", sort: "composite", direction: "desc", theme_group: "", theme: "" });
 const stocks = ref([]);
 const themeGroups = ref([]);
 const loading = ref(true);
@@ -221,9 +229,25 @@ function requestParams(page) {
   if (filters.q) params.q = filters.q;
   if (filters.min_score) params.min_score = filters.min_score;
   if (filters.sort) params.sort = filters.sort;
+  if (filters.direction) params.direction = filters.direction;
   if (filters.theme) params.theme = filters.theme;
   if (filters.theme_group) params.theme_group = filters.theme_group;
   return params;
+}
+
+function toggleSort(sort) {
+  filters.direction = filters.sort === sort && filters.direction === "desc" ? "asc" : "desc";
+  filters.sort = sort;
+  loadStocks();
+}
+
+function sortArrow(sort) {
+  if (filters.sort !== sort) return "";
+  return filters.direction === "asc" ? "↑" : "↓";
+}
+
+function sortHeaderClass(sort) {
+  return filters.sort === sort ? "text-slate-950" : "text-slate-500";
 }
 
 function updatePagination(payload, page) {

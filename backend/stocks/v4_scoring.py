@@ -112,10 +112,14 @@ def calculate(score, metric, prices, rs12_scores, rs6_scores, market_regime):
         timing *= .30
     elif pm["z_score"] > 2.5:
         timing *= .50
-    if market_regime < 40:
-        timing *= .85
-    elif market_regime < 50:
-        timing *= .93
+    # 시장 국면별 동적 매수 진입 기준(Gate) 설정
+    if market_regime >= 60:
+        required_timing = 70.0
+    elif market_regime >= 45:
+        required_timing = 75.0
+    else:
+        required_timing = 80.0
+
     timing = round(clamp(timing), 1)
     adjustment, valuation_status = valuation_adjustment(metric)
     ineligible = bool(score.fail_safe_flag or not score.stock.is_tradable)
@@ -131,11 +135,11 @@ def calculate(score, metric, prices, rs12_scores, rs6_scores, market_regime):
         action, label, action_reason = "TRADE_ONLY", "중장기 보유 부적합", "회사 품질이 낮아 장기 보유 관점의 매수 후보에서는 제외합니다."
     elif market < 55:
         action, label, action_reason = "WAIT_MARKET", "관심 유지 - 시장 검증 대기", "회사와 단기 흐름은 볼 만하지만 상대강도와 하락 방어력이 아직 부족합니다."
-    elif timing >= 70:
-        action, label, action_reason = "BUY_CANDIDATE", "분할 매수 후보", "추세·수급·돌파·과열 억제 조건이 모두 비교적 양호합니다."
+    elif timing >= required_timing:
+        action, label, action_reason = "BUY_CANDIDATE", "분할 매수 후보", f"추세·수급·돌파·과열 억제 조건이 양호하며, 시장 국면 대비 진입 기준({required_timing}점)을 충족합니다."
     elif timing >= 50:
-        action, label, action_reason = "WATCH", "관찰 유지 - 매수 조건 미충족", "즉시 매수할 근거는 부족하지만 추세가 개선되는지 계속 확인할 구간입니다."
+        action, label, action_reason = "WATCH", "관찰 유지 - 매수 조건 미충족", f"즉시 매수할 근거는 부족하지만 추세가 개선되는지 계속 확인할 구간입니다. (시장 대비 진입 기준: {required_timing}점)"
     else:
-        action, label, action_reason = "WAIT", "매수 대기 - 진입 근거 부족", "추세·수급·돌파 가운데 여러 조건이 부족해 당장 진입하지 않습니다."
+        action, label, action_reason = "WAIT", f"매수 대기 - 진입 기준 미충족 ({required_timing}점 필요)", f"추세·수급·돌파 조건이 부족하거나 시장 상황이 약세여서 진입하지 않습니다. (현재 {timing}점 / 기준 {required_timing}점)"
     final = None if ineligible else composite(company, market, timing, adjustment)
     return {"company": round(company, 1), "market": round(market, 1), "timing": timing, "timing_base": round(timing_base, 1), "composite": final, "adjustment": adjustment, "valuation_status": valuation_status, "action": action, "label": label, "action_reason": action_reason, "financial_status": financial_status, "metrics": pm}
