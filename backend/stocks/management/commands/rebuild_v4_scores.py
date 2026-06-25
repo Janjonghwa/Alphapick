@@ -133,12 +133,11 @@ class Command(BaseCommand):
             ]
             snapshot.headline = f"회사 {result['company']:.1f} · 시장 {result['market']:.1f} · 타이밍 {result['timing']:.1f}"
             snapshot.verdict = result["label"]
-            snapshot.key_reason = f"회사 품질 {result['company']:.1f}점, 시장 검증 {result['market']:.1f}점, 진입 타이밍 {result['timing']:.1f}점"
             snapshot.save(
                 update_fields=(
                     "total_score", "company_score", "market_validation_score", "timing_score",
                     "valuation_adjustment", "action_signal", "action_label", "financial_data_status",
-                    "is_investment_ineligible", "area_scores", "score_cards", "headline", "verdict", "key_reason",
+                    "is_investment_ineligible", "area_scores", "score_cards", "headline", "verdict",
                 )
             )
             updated += 1

@@ -400,7 +400,9 @@ def collect_metrics(frame, min_trading_value):
     daily_return = close.pct_change().replace([np.inf, -np.inf], np.nan).dropna()
     current_price = float(close.iloc[-1])
     high_52w = float(high.tail(252).max())
+    close_52w = float(close.tail(252).max())
     distance_to_high = (high_52w - current_price) / high_52w * 100 if high_52w else 100
+    distance_to_close_high = (close_52w - current_price) / close_52w * 100 if close_52w else 100
     avg_trading_value_20 = float((close * volume).tail(20).mean())
     avg_volume_20 = float(volume.tail(20).mean()) or 1
     volume_ratio = float(volume.iloc[-1] / avg_volume_20)
@@ -421,6 +423,7 @@ def collect_metrics(frame, min_trading_value):
         "return_252": pct_change(close, min(252, max(1, len(close) - 2))),
         "high_52w": high_52w,
         "distance_to_high": distance_to_high,
+        "distance_to_close_high": distance_to_close_high,
         "avg_trading_value_20": avg_trading_value_20,
         "volume_ratio": volume_ratio,
         "volume_surge": volume_ratio >= 2.0,
@@ -539,7 +542,7 @@ def score_stock(collected, rs_rank, market_direction):
     key_reasons = []
     if rs_rank >= 80:
         key_reasons.append(f"RS {rs_rank}")
-    if metrics["distance_to_high"] <= 5:
+    if metrics["distance_to_close_high"] <= 3:
         key_reasons.append("52주 신고가 근접")
     if metrics["return_63"] > 10:
         key_reasons.append("3개월 모멘텀")
