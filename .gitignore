@@ -25,3 +25,4 @@ frontend/.env
 
 .DS_Store
 Thumbs.db
+backend/db.sqlite3.backup-20260624-172558
