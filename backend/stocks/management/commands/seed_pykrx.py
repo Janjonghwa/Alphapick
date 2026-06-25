@@ -374,10 +374,42 @@ def pct_change(close, days):
     return (close.iloc[-1] / start - 1) * 100
 
 
+def adjust_corporate_actions(frame):
+    """Adjust historical prices in place for unadjusted stock splits, mergers, or capital reductions.
+    
+    If the ratio between consecutive days' close prices is outside [0.69, 1.31] (exceeding the standard 30% limit),
+    we adjust all historical prices before that day by multiplying them by the ratio.
+    """
+    if frame.empty or len(frame) < 2:
+        return frame
+
+    closes = frame["close"].values.astype(float)
+    opens = frame["open"].values.astype(float)
+    highs = frame["high"].values.astype(float)
+    lows = frame["low"].values.astype(float)
+    
+    n = len(frame)
+    for i in range(n - 2, -1, -1):
+        ratio = closes[i+1] / closes[i]
+        if ratio > 1.31 or ratio < 0.69:
+            closes[:i+1] *= ratio
+            opens[:i+1] *= ratio
+            highs[:i+1] *= ratio
+            lows[:i+1] *= ratio
+            
+    frame["close"] = closes
+    frame["open"] = opens
+    frame["high"] = highs
+    frame["low"] = lows
+    return frame
+
+
 def build_price_frame(raw):
     frame = normalize_ohlcv(raw)
     if frame.empty:
         return frame
+
+    adjust_corporate_actions(frame)
 
     close = frame["close"]
     volume = frame["volume"]

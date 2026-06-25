@@ -81,12 +81,12 @@ def valuation_adjustment(metric):
     return 0, "FAIR"
 
 
-def composite(q, m, t, adjustment):
+def composite(q, m, t):
     if any(value is None for value in [q, m, t]):
         return None
     q, m, t = (max(float(value), 5) for value in [q, m, t])
     base = 100 * prod([(q / 100) ** 0.40, (m / 100) ** 0.25, (t / 100) ** 0.35])
-    return round(clamp(base + adjustment), 1)
+    return round(clamp(base), 1)
 
 
 def calculate(score, metric, prices, rs12_scores, rs6_scores, market_regime):
@@ -146,5 +146,5 @@ def calculate(score, metric, prices, rs12_scores, rs6_scores, market_regime):
         action, label, action_reason = "WATCH", "관찰 유지 - 매수 조건 미충족", f"즉시 매수할 근거는 부족하지만 추세가 개선되는지 계속 확인할 구간입니다. (시장 대비 진입 기준: {required_timing}점)"
     else:
         action, label, action_reason = "WAIT", f"매수 대기 - 진입 기준 미충족 ({required_timing}점 필요)", f"추세·수급·돌파 조건이 부족하거나 시장 상황이 약세여서 진입하지 않습니다. (현재 {timing}점 / 기준 {required_timing}점)"
-    final = None if ineligible else composite(company, market, timing, adjustment)
-    return {"company": round(company, 1), "market": round(market, 1), "timing": timing, "timing_base": round(timing_base, 1), "composite": final, "adjustment": adjustment, "valuation_status": valuation_status, "action": action, "label": label, "action_reason": action_reason, "financial_status": financial_status, "metrics": pm}
+    final = None if ineligible else composite(company, market, timing)
+    return {"company": round(company, 1), "market": round(market, 1), "timing": timing, "timing_base": round(timing_base, 1), "composite": final, "adjustment": 0, "valuation_status": valuation_status, "action": action, "label": label, "action_reason": action_reason, "financial_status": financial_status, "metrics": pm}

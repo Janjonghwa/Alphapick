@@ -661,6 +661,36 @@ def refresh_price_history_from_pykrx(stock):
     return True
 
 
+def adjust_corporate_actions(frame):
+    """Adjust historical prices in place for unadjusted stock splits, mergers, or capital reductions.
+    
+    If the ratio between consecutive days' close prices is outside [0.69, 1.31] (exceeding the standard 30% limit),
+    we adjust all historical prices before that day by multiplying them by the ratio.
+    """
+    if frame.empty or len(frame) < 2:
+        return frame
+
+    closes = frame["close"].values.astype(float)
+    opens = frame["open"].values.astype(float)
+    highs = frame["high"].values.astype(float)
+    lows = frame["low"].values.astype(float)
+    
+    n = len(frame)
+    for i in range(n - 2, -1, -1):
+        ratio = closes[i+1] / closes[i]
+        if ratio > 1.31 or ratio < 0.69:
+            closes[:i+1] *= ratio
+            opens[:i+1] *= ratio
+            highs[:i+1] *= ratio
+            lows[:i+1] *= ratio
+            
+    frame["close"] = closes
+    frame["open"] = opens
+    frame["high"] = highs
+    frame["low"] = lows
+    return frame
+
+
 def normalize_pykrx_ohlcv(raw):
     if raw.empty:
         return pd.DataFrame()
@@ -685,6 +715,9 @@ def normalize_pykrx_ohlcv(raw):
     frame = frame[(frame["open"] > 0) & (frame["high"] > 0) & (frame["low"] > 0) & (frame["close"] > 0)]
     frame.index = pd.to_datetime(frame.index)
     frame = frame.sort_index()
+
+    adjust_corporate_actions(frame)
+
     close = frame["close"]
     frame["ema20"] = close.ewm(span=20, adjust=False).mean()
     frame["ema50"] = close.ewm(span=50, adjust=False).mean()
@@ -1018,7 +1051,7 @@ def ai_comment_provider():
     fallback comments were stored with a GMS provider name, so they never
     retried the real model after the key became available.
     """
-    return f"gms-{settings.GMS_CHAT_MODEL}-meme-v7" if getattr(settings, "GMS_API_KEY", "") else "local-meme-v2"
+    return f"gms-{settings.GMS_CHAT_MODEL}-comment-v14" if getattr(settings, "GMS_API_KEY", "") else "local-comment-v9"
 
 
 def build_local_ai_comment_payload(stock, score, metric, risk_type):
@@ -1031,43 +1064,43 @@ def build_local_ai_comment_payload(stock, score, metric, risk_type):
     action_detail = meme_action_detail(action, warning)
 
     if score.fail_safe_flag or score.is_investment_ineligible or stock.low_liquidity_flag:
-        positive = "농담보다 리스크 관리"
+        positive = "여긴 농담보다 리스크부터 보자"
         negative = strongest_meme_detail(score)
         conclusion = f"{action} · {warning or '경고 신호 먼저 확인'}"
     elif timing <= 0:
-        positive = "풀매수 버튼 완전 압수"
+        positive = "지금은 풀매수 버튼 잠깐 내려놔"
         negative = strongest_meme_detail(score)
         conclusion = f"{action} · 타이밍 0점이라 진입각 실종"
     elif company >= 70 and timing >= 70 and ("낙폭" in warning or "과열" in warning):
-        positive = "로켓은 발사, 추격은 멀미각"
+        positive = "로켓은 보이는데 따라붙진 말자"
         negative = f"퀄리티 {company:.1f}점, 본체는 국밥"
         conclusion = f"{action} · {action_detail}"
     elif company >= 70 and timing < 60:
-        positive = "로켓은 발사, 지금 타면 멀미각" if "낙폭" in warning else "본체는 국밥, 진입각은 품절"
+        positive = "로켓은 보이는데 지금 타면 멀미나" if "낙폭" in warning else "본체는 좋은데 타점은 좀 참자"
         negative = f"퀄리티 {company:.1f}점, 본체 체력 확실"
         conclusion = f"{action} · 타이밍 {timing:.1f}점이라 추격매수 조심"
     elif market >= 70 and company < 60:
-        positive = "차트는 황제주, 본체는 점검 중"
+        positive = "차트는 센데 본체도 한번 보자"
         negative = f"시장 {market:.1f}점, 떡상 폼 확인"
         conclusion = f"{action} · 퀄리티 {company:.1f}점이라 장기 존버는 보류"
     elif company >= 70 and market >= 70 and timing >= 70:
-        positive = "풀세팅인데 매수버튼 압수" if "관망" in action else "본체·차트·타점 전부 로그인"
+        positive = "좋아 보여도 매수버튼은 천천히" if "관망" in action else "이건 조건이 꽤 잘 맞긴 해"
         negative = "회사와 시장 점수 모두 상위권"
         conclusion = f"{action} · {action_detail}"
     elif valuation_heavy:
-        positive = "본체는 국밥, 가격은 파인다이닝"
+        positive = "본체는 좋은데 가격이 좀 신났네"
         negative = strongest_meme_detail(score)
         conclusion = f"{action} · {weakest_meme_detail(score)}"
     else:
-        positive = "가즈아 전에 타이밍 확인"
+        positive = "가즈아 전에 타이밍부터 보자"
         negative = strongest_meme_detail(score)
         conclusion = f"{action} · {weakest_meme_detail(score)}"
     return {
         "positive": positive,
-        "negative": negative,
-        "conclusion": conclusion,
+        "negative": f"💪 강점: {negative}라서 본체 체력은 일단 인정해야지",
+        "conclusion": f"⚠️ 약점: {weakest_meme_detail(score)}라 여기서 성급하게 뛰면 손가락이 먼저 다칠 수 있어 · 🎯 행동: {conclusion}, 한 번에 몰지 말고 신호부터 보자",
         # A fallback must never masquerade as a successful GMS response.
-        "provider": "local-meme-v2",
+        "provider": "local-comment-v9",
     }
 
 
@@ -1158,11 +1191,15 @@ def request_gms_ai_comment(stock, score, metric, risk_type, fallback_payload):
             "content": (
                 "당신은 AlphaPick의 주식 밈 카피라이터다. 입력 점수와 actionLabel을 바꾸지 말고 "
                 "한국 주식 커뮤니티·유튜브 쇼츠·SNS 스타일의 짧고 강한 코멘트로 변환한다. "
-                "반드시 JSON만 반환한다: {\"headline\":\"강한 주식 밈 한 줄\",\"details\":[\"강점 요약\",\"약점 요약\",\"행동 요약\"]}. "
-                "headline은 8~26자, 종목명 반복과 마침표 금지. details는 정확히 3줄. "
-                "headline은 actionLabel을 그대로 옮기면 실패다. '관망', '주도주', 'RS' 같은 라벨만 나열하지 말고 "
-                "반드시 은어/밈 표현과 반전을 넣어라. 예: 풀매수 버튼 압수, 본체는 국밥, 진입각 품절. "
-                "떡상, 존버, 풀매수, 몰빵, 가즈아, 로켓 발사 같은 표현은 비유로만 쓰고 "
+                "반드시 JSON만 반환한다: {\"headline\":\"말하듯이 툭 던지는 한 줄\",\"details\":[\"💪 강점: 자연스러운 한 문장\",\"⚠️ 약점: 훈수두듯이 한 문장\",\"🎯 행동: 실제 행동을 풀어쓴 한 문장\"]}. "
+                "headline은 18~42자, 완성된 한국어 문장으로 쓰고 문장 끝에 상황에 맞는 이모지 1개를 붙인다. 종목명과 티커와 마침표 금지. "
+                "'는 관망이 답', '이건 관찰', '매수 후보'처럼 주어·서술어가 빠진 짧은 조각 문장은 실패다. "
+                "details는 정확히 3줄이며 각 줄은 이모지와 강점/약점/행동 라벨로 시작한다. "
+                "details는 '시장 점수 69.9점으로...'처럼 보고서 요약만 쓰지 말고, '~긴 한데', '~라서 지금은', '~부터 보자'처럼 사람이 말하는 훈수체로 쓴다. "
+                "headline도 제목처럼 딱딱하게 쓰지 말고 친구가 옆에서 툭 말하는 느낌으로 쓴다. 밈은 한 단어 정도만 곁들인다. "
+                "좋은 예: 이건 좀 기다렸다 타는 게 낫다 🧘, 본체는 좋은데 손은 잠깐 참자 ✋, 지금 뛰면 손가락만 바빠진다 🏃. "
+                "'말하듯이', '친구한테', '한 단어:' 같은 작성 지시문을 출력에 그대로 쓰면 실패다. "
+                "떡상, 존버, 풀매수, 몰빵, 가즈아, 로켓 발사 같은 표현은 가끔 비유로만 쓰고 "
                 "수익 보장, 반드시 오른다, 무조건 매수, 지금 사야 함, 상한가 확정은 금지한다."
             ),
         },
@@ -1197,6 +1234,8 @@ def request_gms_ai_comment(stock, score, metric, risk_type, fallback_payload):
     except (KeyError, ValueError, requests.RequestException, json.JSONDecodeError):
         return None
 
+    if parsed:
+        parsed = sanitize_ai_comment(parsed, stock)
     if not parsed or is_bad_meme_comment(parsed, stock):
         return None
     return {
@@ -1231,9 +1270,39 @@ def parse_ai_comment_json(content):
     return {key: str(data[key]).strip() for key in required}
 
 
+def sanitize_ai_comment(payload, stock):
+    headline = payload.get("positive", "")
+    # List of common Korean particles that might follow a stock name or ticker
+    particles = r"(?:은|는|이|가|을|를|의|에|와|과|으로|로|도|만|하고|에서|에게|한테|이라|이랑)?"
+    for forbidden in (stock.name, stock.ticker, stock.ticker.split(".")[0]):
+        if forbidden:
+            headline = re.sub(rf"^\s*{re.escape(forbidden)}{particles}\s*[-:·,]*\s*", "", headline).strip()
+            headline = re.sub(rf"\s*{re.escape(forbidden)}{particles}\s*", " ", headline).strip()
+    headline = re.sub(r"\s+", " ", headline).strip(" -:·,")
+    if not headline:
+        return None
+    if not re.search(r"[\U0001F300-\U0001FAFF]", headline):
+        headline = f"{headline} {headline_emoji(payload)}"
+    cleaned = {**payload, "positive": headline}
+    for key in ("negative", "conclusion"):
+        cleaned[key] = re.sub(r"(?:친구한테\s*)?말하듯이\s*", "", cleaned.get(key, ""))
+        cleaned[key] = re.sub(r"\(?한 단어:\s*[^)]+?\)?", "", cleaned[key]).strip()
+    return cleaned
+
+
+def headline_emoji(payload):
+    text = " ".join(str(value) for value in payload.values())
+    if any(term in text for term in ("대기", "관망", "관찰", "보류", "조건 미충족")):
+        return "🧘"
+    if any(term in text for term in ("주의", "리스크", "하방", "손절", "과열")):
+        return "⚠️"
+    if any(term in text for term in ("매수", "분할", "탑승", "진입")):
+        return "🎯"
+    return "🔥"
+
+
 def is_bad_meme_comment(payload, stock):
     headline = payload.get("positive", "")
     text = " ".join(str(value) for value in payload.values())
-    meme_terms = ["떡상", "존버", "풀매수", "몰빵", "가즈아", "로켓", "국밥", "진입각", "탑승", "품절", "로그인", "압수", "우주", "멀미", "파인다이닝"]
-    banned_leaks = ["actionLabel", "RS ", "RS", stock.name]
-    return any(term in headline for term in banned_leaks) or "반영:" in text or not any(term in headline for term in meme_terms)
+    banned_leaks = ["actionLabel", "RS ", "RS"]
+    return any(term in headline for term in banned_leaks) or "반영:" in text or len(headline) < 12
