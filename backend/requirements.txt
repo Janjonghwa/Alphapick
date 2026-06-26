@@ -12,3 +12,4 @@ numpy>=2.3.5
 pykrx==1.0.51
 gpxpy==1.6.2
 shapely==2.1.2
+gunicorn
